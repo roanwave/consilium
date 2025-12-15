@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info(f"Session store initialized: {store.get_cache_stats()}")
 
     # Initialize LLM client
-    if settings.has_anthropic_key or settings.has_openrouter_key:
+    if settings.has_anthropic_key or settings.has_openai_key or settings.has_openrouter_key:
         await get_llm_client()
         logger.info("LLM client initialized")
     else:

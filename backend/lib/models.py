@@ -139,6 +139,11 @@ class Commander(BaseModel):
     )
     known_for: str = Field(default="", description="What they're known for")
 
+    @property
+    def notable_traits(self) -> list[str]:
+        """Alias for personality_traits for backward compatibility."""
+        return self.personality_traits
+
 
 class ForceDescription(BaseModel):
     """Description of one side's forces."""
@@ -153,7 +158,12 @@ class ForceDescription(BaseModel):
         default_factory=list, description="Subordinate commanders"
     )
     morale: str = Field(default="steady", description="Overall morale state")
+    morale_factors: list[str] = Field(
+        default_factory=list, description="Factors affecting morale"
+    )
     supply_state: str = Field(default="adequate", description="Supply situation")
+    equipment: str | None = Field(default=None, description="Equipment description")
+    armor_quality: str | None = Field(default=None, description="Armor quality assessment")
     objectives: list[str] = Field(default_factory=list, description="Strategic objectives")
     constraints: list[str] = Field(
         default_factory=list, description="Operational constraints"

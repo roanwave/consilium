@@ -1,6 +1,7 @@
 """Unified LLM client for Consilium.
 
-Supports both Anthropic (Claude) and OpenRouter APIs.
+Supports Anthropic (Claude), OpenAI (GPT), and OpenRouter APIs.
+Routes requests based on MODEL_ASSIGNMENTS configuration.
 """
 
 import asyncio
@@ -10,9 +11,17 @@ from typing import Any, AsyncIterator
 
 import httpx
 from anthropic import AsyncAnthropic
+from openai import AsyncOpenAI
 from pydantic import BaseModel
 
-from backend.config import ModelType, Settings, get_settings
+from backend.config import (
+    MODEL_ASSIGNMENTS,
+    ModelConfig,
+    ModelProvider,
+    ModelType,
+    Settings,
+    get_settings,
+)
 from backend.lib.exceptions import (
     LLMAuthenticationError,
     LLMConnectionError,
@@ -53,12 +62,21 @@ class StreamChunk(BaseModel):
 
 
 class LLMClient:
-    """Unified client for LLM APIs."""
+    """
+    Unified client for LLM APIs.
+
+    Routes requests to Anthropic, OpenAI, or OpenRouter based on model config.
+    Tracks token usage per expert for cost monitoring.
+    """
 
     def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
         self._anthropic_client: AsyncAnthropic | None = None
+        self._openai_client: AsyncOpenAI | None = None
         self._http_client: httpx.AsyncClient | None = None
+
+        # Token tracking per expert
+        self._token_usage: dict[str, TokenUsage] = {}
 
     async def __aenter__(self) -> "LLMClient":
         """Async context manager entry."""
@@ -75,6 +93,12 @@ class LLMClient:
             self._anthropic_client = AsyncAnthropic(
                 api_key=self.settings.anthropic_api_key,
             )
+
+        if self._openai_client is None and self.settings.has_openai_key:
+            self._openai_client = AsyncOpenAI(
+                api_key=self.settings.openai_api_key,
+            )
+
         if self._http_client is None:
             self._http_client = httpx.AsyncClient(
                 timeout=httpx.Timeout(120.0, connect=10.0),
@@ -86,9 +110,25 @@ class LLMClient:
             await self._http_client.aclose()
             self._http_client = None
 
-    def _get_provider(self, model: str) -> str:
+    def _get_provider(self, model: str) -> ModelProvider:
         """Determine provider for a model."""
         return self.settings.get_model_provider(model)
+
+    def _track_usage(
+        self, expert: str, input_tokens: int, output_tokens: int
+    ) -> None:
+        """Track cumulative token usage per expert."""
+        if expert not in self._token_usage:
+            self._token_usage[expert] = TokenUsage()
+        self._token_usage[expert].input_tokens += input_tokens
+        self._token_usage[expert].output_tokens += output_tokens
+
+    def get_usage_summary(self) -> dict[str, dict[str, int]]:
+        """Return token usage by expert for cost tracking."""
+        return {
+            expert: {"input": usage.input_tokens, "output": usage.output_tokens}
+            for expert, usage in self._token_usage.items()
+        }
 
     # =========================================================================
     # Anthropic API
@@ -101,6 +141,7 @@ class LLMClient:
         system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
+        expert: str | None = None,
     ) -> LLMResponse:
         """Complete using Anthropic API."""
         await self._ensure_clients()
@@ -125,15 +166,25 @@ class LLMClient:
                 if hasattr(block, "text"):
                     content += block.text
 
+            input_tokens = response.usage.input_tokens
+            output_tokens = response.usage.output_tokens
+
             token_usage = TokenUsage(
-                input_tokens=response.usage.input_tokens,
-                output_tokens=response.usage.output_tokens,
-                cache_read_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cache_read_tokens=getattr(
+                    response.usage, "cache_read_input_tokens", 0
+                )
+                or 0,
                 cache_creation_tokens=getattr(
                     response.usage, "cache_creation_input_tokens", 0
-                ) or 0,
+                )
+                or 0,
                 model=model,
             )
+
+            if expert:
+                self._track_usage(expert, input_tokens, output_tokens)
 
             return LLMResponse(
                 content=content,
@@ -196,6 +247,109 @@ class LLMClient:
             raise LLMConnectionError(str(e))
 
     # =========================================================================
+    # OpenAI API
+    # =========================================================================
+
+    async def _complete_openai(
+        self,
+        model: str,
+        messages: list[dict[str, Any]],
+        system: str | None = None,
+        max_tokens: int = 4096,
+        temperature: float = 0.7,
+        expert: str | None = None,
+    ) -> LLMResponse:
+        """Complete using OpenAI API."""
+        await self._ensure_clients()
+
+        if not self._openai_client:
+            raise LLMAuthenticationError("OpenAI API key not configured")
+
+        # Build messages list with system message
+        all_messages = []
+        if system:
+            all_messages.append({"role": "system", "content": system})
+        all_messages.extend(messages)
+
+        try:
+            response = await self._openai_client.chat.completions.create(
+                model=model,
+                messages=all_messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+
+            content = response.choices[0].message.content or ""
+            input_tokens = response.usage.prompt_tokens if response.usage else 0
+            output_tokens = response.usage.completion_tokens if response.usage else 0
+
+            token_usage = TokenUsage(
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                model=model,
+            )
+
+            if expert:
+                self._track_usage(expert, input_tokens, output_tokens)
+
+            return LLMResponse(
+                content=content,
+                token_usage=token_usage,
+                model=model,
+                finish_reason=response.choices[0].finish_reason,
+            )
+
+        except Exception as e:
+            error_msg = str(e).lower()
+            if "rate limit" in error_msg or "429" in error_msg:
+                raise LLMRateLimitError(str(e))
+            if "context length" in error_msg or "too many tokens" in error_msg:
+                raise LLMContextLengthError(str(e))
+            if "authentication" in error_msg or "401" in error_msg:
+                raise LLMAuthenticationError(str(e))
+            raise LLMConnectionError(str(e))
+
+    async def _stream_openai(
+        self,
+        model: str,
+        messages: list[dict[str, Any]],
+        system: str | None = None,
+        max_tokens: int = 4096,
+        temperature: float = 0.7,
+    ) -> AsyncIterator[StreamChunk]:
+        """Stream using OpenAI API."""
+        await self._ensure_clients()
+
+        if not self._openai_client:
+            raise LLMAuthenticationError("OpenAI API key not configured")
+
+        all_messages = []
+        if system:
+            all_messages.append({"role": "system", "content": system})
+        all_messages.extend(messages)
+
+        try:
+            stream = await self._openai_client.chat.completions.create(
+                model=model,
+                messages=all_messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                stream=True,
+            )
+
+            async for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    yield StreamChunk(content=chunk.choices[0].delta.content)
+                if chunk.choices and chunk.choices[0].finish_reason:
+                    yield StreamChunk(content="", is_final=True)
+
+        except Exception as e:
+            error_msg = str(e).lower()
+            if "rate limit" in error_msg:
+                raise LLMRateLimitError(str(e))
+            raise LLMConnectionError(str(e))
+
+    # =========================================================================
     # OpenRouter API
     # =========================================================================
 
@@ -206,6 +360,7 @@ class LLMClient:
         system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
+        expert: str | None = None,
     ) -> LLMResponse:
         """Complete using OpenRouter API."""
         await self._ensure_clients()
@@ -248,12 +403,17 @@ class LLMClient:
 
             content = data["choices"][0]["message"]["content"]
             usage = data.get("usage", {})
+            input_tokens = usage.get("prompt_tokens", 0)
+            output_tokens = usage.get("completion_tokens", 0)
 
             token_usage = TokenUsage(
-                input_tokens=usage.get("prompt_tokens", 0),
-                output_tokens=usage.get("completion_tokens", 0),
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
                 model=model,
             )
+
+            if expert:
+                self._track_usage(expert, input_tokens, output_tokens)
 
             return LLMResponse(
                 content=content,
@@ -340,6 +500,7 @@ class LLMClient:
         temperature: float = 0.7,
         retries: int = 3,
         retry_delay: float = 1.0,
+        expert: str | None = None,
     ) -> LLMResponse:
         """
         Complete a chat conversation.
@@ -352,6 +513,7 @@ class LLMClient:
             temperature: Sampling temperature
             retries: Number of retries on transient errors
             retry_delay: Initial delay between retries (exponential backoff)
+            expert: Expert codename for token tracking
 
         Returns:
             LLMResponse with content and token usage
@@ -361,13 +523,17 @@ class LLMClient:
 
         for attempt in range(retries):
             try:
-                if provider == "anthropic":
+                if provider == ModelProvider.ANTHROPIC:
                     return await self._complete_anthropic(
-                        model_str, messages, system, max_tokens, temperature
+                        model_str, messages, system, max_tokens, temperature, expert
+                    )
+                elif provider == ModelProvider.OPENAI:
+                    return await self._complete_openai(
+                        model_str, messages, system, max_tokens, temperature, expert
                     )
                 else:
                     return await self._complete_openrouter(
-                        model_str, messages, system, max_tokens, temperature
+                        model_str, messages, system, max_tokens, temperature, expert
                     )
             except LLMRateLimitError:
                 if attempt < retries - 1:
@@ -386,6 +552,39 @@ class LLMClient:
 
         # Should never reach here
         raise LLMConnectionError("Max retries exceeded")
+
+    async def complete_for_expert(
+        self,
+        expert_codename: str,
+        system: str,
+        prompt: str,
+        max_tokens: int = 4096,
+    ) -> LLMResponse:
+        """
+        Complete a request for a specific expert using MODEL_ASSIGNMENTS.
+
+        Args:
+            expert_codename: The expert's codename (e.g., "strategist", "auditor")
+            system: System prompt
+            prompt: User prompt
+            max_tokens: Maximum tokens to generate
+
+        Returns:
+            LLMResponse with content and token usage
+        """
+        config = MODEL_ASSIGNMENTS.get(expert_codename)
+        if not config:
+            raise ValueError(f"Unknown expert: {expert_codename}")
+
+        messages = [{"role": "user", "content": prompt}]
+
+        return await self.complete(
+            model=config.model_id,
+            messages=messages,
+            system=system,
+            max_tokens=max_tokens,
+            expert=expert_codename,
+        )
 
     async def stream(
         self,
@@ -411,8 +610,13 @@ class LLMClient:
         model_str = model.value if isinstance(model, ModelType) else model
         provider = self._get_provider(model_str)
 
-        if provider == "anthropic":
+        if provider == ModelProvider.ANTHROPIC:
             async for chunk in self._stream_anthropic(
+                model_str, messages, system, max_tokens, temperature
+            ):
+                yield chunk
+        elif provider == ModelProvider.OPENAI:
+            async for chunk in self._stream_openai(
                 model_str, messages, system, max_tokens, temperature
             ):
                 yield chunk
