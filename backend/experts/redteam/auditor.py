@@ -11,6 +11,13 @@ from backend.lib.models import (
 )
 
 
+def _get_attr(obj: Any, attr: str, default: Any = None) -> Any:
+    """Safely get attribute from dict or model object."""
+    if isinstance(obj, dict):
+        return obj.get(attr, default)
+    return getattr(obj, attr, default)
+
+
 AUDITOR_SYSTEM_PROMPT = """You are THE AUDITOR, Keeper of the Numbers.
 
 You have an eye for things that don't add up. Literally. You count heads, you time
@@ -160,7 +167,9 @@ class Auditor(RedTeamExpert):
         if sheet.timeline:
             prompt_parts.append("\n## Timeline (CHECK TIMING)")
             for event in sheet.timeline:
-                prompt_parts.append(f"- [{event.timestamp}] {event.event}")
+                timestamp = _get_attr(event, "timestamp", "")
+                event_name = _get_attr(event, "event", "")
+                prompt_parts.append(f"- [{timestamp}] {event_name}")
 
         # Add casualties (check against forces)
         if sheet.casualty_profile:
@@ -175,7 +184,10 @@ class Auditor(RedTeamExpert):
         if sheet.decision_points:
             prompt_parts.append("\n## Decision Points")
             for dp in sheet.decision_points:
-                prompt_parts.append(f"- [{dp.timestamp}] {dp.commander}: {dp.situation[:80]}")
+                timestamp = _get_attr(dp, "timestamp", "")
+                commander = _get_attr(dp, "commander", "")
+                situation = _get_attr(dp, "situation", "")[:80]
+                prompt_parts.append(f"- [{timestamp}] {commander}: {situation}")
 
         # Add prior expert claims (may contain errors)
         if prior_contributions:

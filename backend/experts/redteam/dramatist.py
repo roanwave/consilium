@@ -11,6 +11,13 @@ from backend.lib.models import (
 )
 
 
+def _get_attr(obj: Any, attr: str, default: Any = None) -> Any:
+    """Safely get attribute from dict or model object."""
+    if isinstance(obj, dict):
+        return obj.get(attr, default)
+    return getattr(obj, attr, default)
+
+
 DRAMATIST_SYSTEM_PROMPT = """You are THE DRAMATIST, Servant of the Story.
 
 You understand that a battle scenario is not just a simulation—it's a STORY.
@@ -134,18 +141,23 @@ class Dramatist(RedTeamExpert):
         if sheet.forces:
             prompt_parts.append("\n## THE CHARACTERS")
             for side_id, force in sheet.forces.items():
-                prompt_parts.append(f"\n**{force.side_name}:**")
-                if force.commander:
-                    prompt_parts.append(f"- {force.commander.name}")
-                    prompt_parts.append(f"- Competence: {force.commander.competence.value}")
-                    if force.commander.notable_traits:
-                        prompt_parts.append(
-                            f"- Traits: {', '.join(force.commander.notable_traits)}"
-                        )
+                side_name = _get_attr(force, "side_name", side_id)
+                prompt_parts.append(f"\n**{side_name}:**")
+                commander = _get_attr(force, "commander", None)
+                if commander:
+                    cmd_name = _get_attr(commander, "name", "Unknown")
+                    competence = _get_attr(commander, "competence", "")
+                    comp_val = competence.value if hasattr(competence, "value") else str(competence)
+                    prompt_parts.append(f"- {cmd_name}")
+                    prompt_parts.append(f"- Competence: {comp_val}")
+                    traits = _get_attr(commander, "notable_traits", None) or _get_attr(commander, "personality_traits", [])
+                    if traits:
+                        prompt_parts.append(f"- Traits: {', '.join(traits)}")
                 else:
                     prompt_parts.append("- Commander: UNNAMED (reduces dramatic potential)")
-                if force.morale_factors:
-                    prompt_parts.append(f"- Fighting for: {', '.join(force.morale_factors)}")
+                morale_factors = _get_attr(force, "morale_factors", [])
+                if morale_factors:
+                    prompt_parts.append(f"- Fighting for: {', '.join(morale_factors)}")
 
         # The setting (terrain)
         if sheet.terrain_weather:
@@ -160,10 +172,15 @@ class Dramatist(RedTeamExpert):
         if sheet.decision_points:
             prompt_parts.append("\n## THE TURNING POINTS")
             for dp in sheet.decision_points:
-                prompt_parts.append(f"\n**{dp.commander}** at {dp.timestamp}:")
-                prompt_parts.append(f"- Faces: {dp.situation}")
-                prompt_parts.append(f"- Chooses: {dp.chosen}")
-                prompt_parts.append(f"- Result: {dp.consequences}")
+                timestamp = _get_attr(dp, "timestamp", "")
+                commander = _get_attr(dp, "commander", "")
+                situation = _get_attr(dp, "situation", "")
+                chosen = _get_attr(dp, "chosen", "")
+                consequences = _get_attr(dp, "consequences", "")
+                prompt_parts.append(f"\n**{commander}** at {timestamp}:")
+                prompt_parts.append(f"- Faces: {situation}")
+                prompt_parts.append(f"- Chooses: {chosen}")
+                prompt_parts.append(f"- Result: {consequences}")
         else:
             prompt_parts.append(
                 "\n## THE TURNING POINTS\n"
@@ -174,7 +191,9 @@ class Dramatist(RedTeamExpert):
         if sheet.timeline:
             prompt_parts.append("\n## THE ARC")
             for event in sheet.timeline:
-                prompt_parts.append(f"- [{event.timestamp}] {event.event}")
+                timestamp = _get_attr(event, "timestamp", "")
+                event_name = _get_attr(event, "event", "")
+                prompt_parts.append(f"- [{timestamp}] {event_name}")
 
         # The resolution (aftermath)
         if sheet.aftermath:

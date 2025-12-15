@@ -1,0 +1,136 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 4%;
+    --foreground: 240 5% 90%;
+    --card: 0 0% 8%;
+    --card-foreground: 240 5% 90%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 240 5% 90%;
+    --primary: 32 95% 44%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 240 5% 90%;
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 32 95% 44%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 32 95% 44%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-war-border;
+  }
+  body {
+    @apply bg-war-bg text-war-text;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* War room aesthetic enhancements */
+@layer components {
+  .war-glow {
+    box-shadow: 0 0 20px rgba(217, 119, 6, 0.15);
+  }
+
+  .war-glow-strong {
+    box-shadow: 0 0 30px rgba(217, 119, 6, 0.25);
+  }
+
+  .war-border-glow {
+    border-color: rgba(217, 119, 6, 0.5);
+  }
+
+  .war-text-glow {
+    text-shadow: 0 0 10px rgba(217, 119, 6, 0.5);
+  }
+
+  .war-gradient {
+    background: linear-gradient(
+      135deg,
+      rgba(217, 119, 6, 0.1) 0%,
+      transparent 50%,
+      rgba(217, 119, 6, 0.05) 100%
+    );
+  }
+
+  .war-panel {
+    @apply bg-war-surface border border-war-border rounded-lg;
+    background: linear-gradient(
+      180deg,
+      rgba(20, 20, 22, 1) 0%,
+      rgba(10, 10, 11, 1) 100%
+    );
+  }
+
+  /* Deliberation stream styling */
+  .deliberation-entry {
+    @apply border-l-2 border-war-border pl-4 py-2;
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .deliberation-entry.expert {
+    @apply border-l-war-accent;
+  }
+
+  .deliberation-entry.redteam {
+    @apply border-l-red-600;
+  }
+
+  .deliberation-entry.system {
+    @apply border-l-war-muted;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulse-glow {
+    0%,
+    100% {
+      box-shadow: 0 0 20px rgba(217, 119, 6, 0.2);
+    }
+    50% {
+      box-shadow: 0 0 40px rgba(217, 119, 6, 0.4);
+    }
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-war-bg;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-war-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-war-muted;
+  }
+}

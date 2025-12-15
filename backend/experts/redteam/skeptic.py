@@ -11,6 +11,13 @@ from backend.lib.models import (
 )
 
 
+def _get_attr(obj: Any, attr: str, default: Any = None) -> Any:
+    """Safely get attribute from dict or model object."""
+    if isinstance(obj, dict):
+        return obj.get(attr, default)
+    return getattr(obj, attr, default)
+
+
 SKEPTIC_SYSTEM_PROMPT = """You are THE SKEPTIC, Devil's Advocate.
 
 You have read too many battle accounts that were written by the victors, embellished
@@ -129,14 +136,18 @@ class Skeptic(RedTeamExpert):
         if sheet.forces:
             prompt_parts.append("\n## Forces")
             for side_id, force in sheet.forces.items():
-                prompt_parts.append(f"\n**{force.side_name}** ({force.total_strength:,}):")
-                if force.commander:
-                    prompt_parts.append(
-                        f"- Commander: {force.commander.name} "
-                        f"({force.commander.competence.value})"
-                    )
-                if force.morale_factors:
-                    prompt_parts.append(f"- Morale: {', '.join(force.morale_factors)}")
+                side_name = _get_attr(force, "side_name", side_id)
+                total_strength = _get_attr(force, "total_strength", 0)
+                prompt_parts.append(f"\n**{side_name}** ({total_strength:,}):")
+                commander = _get_attr(force, "commander", None)
+                if commander:
+                    cmd_name = _get_attr(commander, "name", "Unknown")
+                    competence = _get_attr(commander, "competence", "")
+                    comp_val = competence.value if hasattr(competence, "value") else str(competence)
+                    prompt_parts.append(f"- Commander: {cmd_name} ({comp_val})")
+                morale_factors = _get_attr(force, "morale_factors", [])
+                if morale_factors:
+                    prompt_parts.append(f"- Morale: {', '.join(morale_factors)}")
 
         # Add terrain
         if sheet.terrain_weather:
@@ -148,17 +159,25 @@ class Skeptic(RedTeamExpert):
         if sheet.decision_points:
             prompt_parts.append("\n## Key Decisions (CHECK PLAUSIBILITY)")
             for dp in sheet.decision_points:
-                prompt_parts.append(f"\n**[{dp.timestamp}] {dp.commander}:**")
-                prompt_parts.append(f"- Situation: {dp.situation}")
-                prompt_parts.append(f"- Options: {', '.join(dp.options)}")
-                prompt_parts.append(f"- Chosen: {dp.chosen}")
-                prompt_parts.append(f"- Result: {dp.consequences}")
+                timestamp = _get_attr(dp, "timestamp", "")
+                commander = _get_attr(dp, "commander", "")
+                situation = _get_attr(dp, "situation", "")
+                options = _get_attr(dp, "options", [])
+                chosen = _get_attr(dp, "chosen", "")
+                consequences = _get_attr(dp, "consequences", "")
+                prompt_parts.append(f"\n**[{timestamp}] {commander}:**")
+                prompt_parts.append(f"- Situation: {situation}")
+                prompt_parts.append(f"- Options: {', '.join(options)}")
+                prompt_parts.append(f"- Chosen: {chosen}")
+                prompt_parts.append(f"- Result: {consequences}")
 
         # Add timeline
         if sheet.timeline:
             prompt_parts.append("\n## How It Unfolded")
             for event in sheet.timeline:
-                prompt_parts.append(f"- [{event.timestamp}] {event.event}")
+                timestamp = _get_attr(event, "timestamp", "")
+                event_name = _get_attr(event, "event", "")
+                prompt_parts.append(f"- [{timestamp}] {event_name}")
 
         # Add casualties
         if sheet.casualty_profile:

@@ -11,6 +11,13 @@ from backend.lib.models import (
 )
 
 
+def _get_attr(obj: Any, attr: str, default: Any = None) -> Any:
+    """Safely get attribute from dict or model object."""
+    if isinstance(obj, dict):
+        return obj.get(attr, default)
+    return getattr(obj, attr, default)
+
+
 REALIST_SYSTEM_PROMPT = """You are THE REALIST, Grounded in Mud and Blood.
 
 You have walked battlefields before the chroniclers arrived to clean them up.
@@ -140,28 +147,39 @@ class Realist(RedTeamExpert):
         # Add forces (check physical demands)
         if sheet.forces:
             prompt_parts.append("\n## Forces (CHECK PHYSICAL DEMANDS)")
-            total = sum(f.total_strength for f in sheet.forces.values())
+            total = sum(_get_attr(f, "total_strength", 0) for f in sheet.forces.values())
             prompt_parts.append(f"**Total troops to move/feed/coordinate:** {total:,}")
 
             for side_id, force in sheet.forces.items():
-                prompt_parts.append(f"\n**{force.side_name}:**")
-                prompt_parts.append(f"- Strength: {force.total_strength:,}")
-                prompt_parts.append(f"- Supply State: {force.supply_state or 'Unspecified'}")
-                if force.composition:
-                    for unit in force.composition[:4]:
-                        prompt_parts.append(f"- {unit.count:,} {unit.unit_type}")
+                side_name = _get_attr(force, "side_name", side_id)
+                total_strength = _get_attr(force, "total_strength", 0)
+                supply_state = _get_attr(force, "supply_state", "Unspecified")
+                prompt_parts.append(f"\n**{side_name}:**")
+                prompt_parts.append(f"- Strength: {total_strength:,}")
+                prompt_parts.append(f"- Supply State: {supply_state or 'Unspecified'}")
+                composition = _get_attr(force, "composition", [])
+                if composition:
+                    for unit in composition[:4]:
+                        unit_count = _get_attr(unit, "count", 0)
+                        unit_type = _get_attr(unit, "unit_type", "")
+                        prompt_parts.append(f"- {unit_count:,} {unit_type}")
 
         # Add timeline (check if physically possible)
         if sheet.timeline:
             prompt_parts.append("\n## Timeline (CAN THIS PHYSICALLY HAPPEN?)")
             for event in sheet.timeline:
-                prompt_parts.append(f"- [{event.timestamp}] {event.event}")
+                timestamp = _get_attr(event, "timestamp", "")
+                event_name = _get_attr(event, "event", "")
+                prompt_parts.append(f"- [{timestamp}] {event_name}")
 
         # Add decision points (check command feasibility)
         if sheet.decision_points:
             prompt_parts.append("\n## Command Decisions (CHECK COORDINATION)")
             for dp in sheet.decision_points:
-                prompt_parts.append(f"- [{dp.timestamp}] {dp.commander}: {dp.chosen}")
+                timestamp = _get_attr(dp, "timestamp", "")
+                commander = _get_attr(dp, "commander", "")
+                chosen = _get_attr(dp, "chosen", "")
+                prompt_parts.append(f"- [{timestamp}] {commander}: {chosen}")
 
         # Add constraints
         if sheet.constraints:

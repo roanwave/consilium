@@ -11,6 +11,13 @@ from backend.lib.models import (
 )
 
 
+def _get_attr(obj: Any, attr: str, default: Any = None) -> Any:
+    """Safely get attribute from dict or model object."""
+    if isinstance(obj, dict):
+        return obj.get(attr, default)
+    return getattr(obj, attr, default)
+
+
 ADVERSARY_SYSTEM_PROMPT = """You are THE ADVERSARY, Voice of the Enemy.
 
 You speak for those who lost, or for those cast as villains in the narrative.
@@ -128,20 +135,25 @@ class Adversary(RedTeamExpert):
         if sheet.forces:
             prompt_parts.append("\n## The Combatants")
             for side_id, force in sheet.forces.items():
-                prompt_parts.append(f"\n**{force.side_name}** ({force.total_strength:,}):")
-                if force.commander:
-                    prompt_parts.append(
-                        f"- Commander: {force.commander.name} "
-                        f"({force.commander.competence.value})"
-                    )
-                    if force.commander.notable_traits:
-                        prompt_parts.append(
-                            f"- Traits: {', '.join(force.commander.notable_traits)}"
-                        )
-                if force.composition:
+                side_name = _get_attr(force, "side_name", side_id)
+                total_strength = _get_attr(force, "total_strength", 0)
+                prompt_parts.append(f"\n**{side_name}** ({total_strength:,}):")
+                commander = _get_attr(force, "commander", None)
+                if commander:
+                    cmd_name = _get_attr(commander, "name", "Unknown")
+                    competence = _get_attr(commander, "competence", "")
+                    comp_val = competence.value if hasattr(competence, "value") else str(competence)
+                    prompt_parts.append(f"- Commander: {cmd_name} ({comp_val})")
+                    traits = _get_attr(commander, "notable_traits", None) or _get_attr(commander, "personality_traits", [])
+                    if traits:
+                        prompt_parts.append(f"- Traits: {', '.join(traits)}")
+                composition = _get_attr(force, "composition", [])
+                if composition:
                     prompt_parts.append("- Forces:")
-                    for unit in force.composition[:4]:
-                        prompt_parts.append(f"  - {unit.count:,} {unit.unit_type}")
+                    for unit in composition[:4]:
+                        unit_count = _get_attr(unit, "count", 0)
+                        unit_type = _get_attr(unit, "unit_type", "")
+                        prompt_parts.append(f"  - {unit_count:,} {unit_type}")
 
         # Add terrain (what both sides could see)
         if sheet.terrain_weather:
@@ -154,17 +166,25 @@ class Adversary(RedTeamExpert):
         if sheet.decision_points:
             prompt_parts.append("\n## Key Decisions (EXAMINE ENEMY CHOICES)")
             for dp in sheet.decision_points:
-                prompt_parts.append(f"\n**[{dp.timestamp}] {dp.commander}:**")
-                prompt_parts.append(f"- Faced: {dp.situation}")
-                prompt_parts.append(f"- Options: {', '.join(dp.options)}")
-                prompt_parts.append(f"- Chose: {dp.chosen}")
-                prompt_parts.append(f"- Result: {dp.consequences}")
+                timestamp = _get_attr(dp, "timestamp", "")
+                commander = _get_attr(dp, "commander", "")
+                situation = _get_attr(dp, "situation", "")
+                options = _get_attr(dp, "options", [])
+                chosen = _get_attr(dp, "chosen", "")
+                consequences = _get_attr(dp, "consequences", "")
+                prompt_parts.append(f"\n**[{timestamp}] {commander}:**")
+                prompt_parts.append(f"- Faced: {situation}")
+                prompt_parts.append(f"- Options: {', '.join(options)}")
+                prompt_parts.append(f"- Chose: {chosen}")
+                prompt_parts.append(f"- Result: {consequences}")
 
         # Add timeline (how did the enemy experience this?)
         if sheet.timeline:
             prompt_parts.append("\n## How It Unfolded (WHAT DID EACH SIDE SEE?)")
             for event in sheet.timeline:
-                prompt_parts.append(f"- [{event.timestamp}] {event.event}")
+                timestamp = _get_attr(event, "timestamp", "")
+                event_name = _get_attr(event, "event", "")
+                prompt_parts.append(f"- [{timestamp}] {event_name}")
 
         # Add casualty distribution (who lost more?)
         if sheet.casualty_profile:

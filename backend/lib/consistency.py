@@ -9,7 +9,7 @@ Validates ScenarioSheet for internal consistency including:
 """
 
 import re
-from typing import Literal
+from typing import Any, Literal
 
 from backend.lib.defaults import (
     ERA_CONSTRAINTS,
@@ -18,6 +18,13 @@ from backend.lib.defaults import (
     is_anachronistic,
 )
 from backend.lib.models import ConsistencyViolation, ScenarioSheet
+
+
+def _get_attr(obj: Any, attr: str, default: Any = None) -> Any:
+    """Safely get attribute from dict or model object."""
+    if isinstance(obj, dict):
+        return obj.get(attr, default)
+    return getattr(obj, attr, default)
 
 
 def check_timeline_consistency(sheet: ScenarioSheet) -> list[ConsistencyViolation]:
@@ -38,20 +45,27 @@ def check_timeline_consistency(sheet: ScenarioSheet) -> list[ConsistencyViolatio
     timestamp_order: list[tuple[int, str, int]] = []
 
     for idx, event in enumerate(sheet.timeline):
-        minutes = _parse_timestamp(event.timestamp)
+        timestamp = _get_attr(event, "timestamp", "")
+        event_name = _get_attr(event, "event", "")
+        minutes = _parse_timestamp(timestamp)
         if minutes is not None:
-            timestamp_order.append((minutes, event.event, idx))
+            timestamp_order.append((minutes, event_name, idx))
 
     # Sort by time and check for issues
     timestamp_order.sort(key=lambda x: x[0])
 
     # Check that triggered_by events happen before their effects
-    event_times = {event.event: _parse_timestamp(event.timestamp) for event in sheet.timeline}
+    event_times = {
+        _get_attr(event, "event", ""): _parse_timestamp(_get_attr(event, "timestamp", ""))
+        for event in sheet.timeline
+    }
 
     for event in sheet.timeline:
-        if event.triggered_by and event.triggered_by in event_times:
-            trigger_time = event_times[event.triggered_by]
-            event_time = event_times.get(event.event)
+        triggered_by = _get_attr(event, "triggered_by", "")
+        event_name = _get_attr(event, "event", "")
+        if triggered_by and triggered_by in event_times:
+            trigger_time = event_times[triggered_by]
+            event_time = event_times.get(event_name)
 
             if trigger_time is not None and event_time is not None:
                 if trigger_time >= event_time:
@@ -60,7 +74,7 @@ def check_timeline_consistency(sheet: ScenarioSheet) -> list[ConsistencyViolatio
                             field="timeline",
                             violation_type="temporal_paradox",
                             description=(
-                                f"Event '{event.event}' is triggered by '{event.triggered_by}' "
+                                f"Event '{event_name}' is triggered by '{triggered_by}' "
                                 f"but occurs at same time or earlier"
                             ),
                             severity="error",
@@ -83,17 +97,21 @@ def check_force_consistency(sheet: ScenarioSheet) -> list[ConsistencyViolation]:
     violations = []
 
     for side_id, force in sheet.forces.items():
+        # Handle both dict and model for force
+        composition = _get_attr(force, "composition", [])
+        total_strength = _get_attr(force, "total_strength", 0)
+
         # Check unit counts sum correctly
-        if force.composition:
-            unit_sum = sum(unit.count for unit in force.composition)
-            if unit_sum != force.total_strength:
+        if composition:
+            unit_sum = sum(_get_attr(unit, "count", 0) for unit in composition)
+            if unit_sum != total_strength:
                 violations.append(
                     ConsistencyViolation(
                         field=f"forces.{side_id}",
                         violation_type="force_count_mismatch",
                         description=(
                             f"Unit counts sum to {unit_sum} but total_strength is "
-                            f"{force.total_strength}"
+                            f"{total_strength}"
                         ),
                         severity="error",
                         suggestion=(
@@ -103,13 +121,15 @@ def check_force_consistency(sheet: ScenarioSheet) -> list[ConsistencyViolation]:
                 )
 
             # Check for negative counts
-            for unit in force.composition:
-                if unit.count < 0:
+            for unit in composition:
+                unit_count = _get_attr(unit, "count", 0)
+                unit_type = _get_attr(unit, "unit_type", "unknown")
+                if unit_count < 0:
                     violations.append(
                         ConsistencyViolation(
                             field=f"forces.{side_id}.composition",
                             violation_type="negative_count",
-                            description=f"Unit '{unit.unit_type}' has negative count: {unit.count}",
+                            description=f"Unit '{unit_type}' has negative count: {unit_count}",
                             severity="error",
                             suggestion="Unit counts must be non-negative",
                         )
@@ -117,10 +137,12 @@ def check_force_consistency(sheet: ScenarioSheet) -> list[ConsistencyViolation]:
 
     # Check casualty profile against forces
     if sheet.casualty_profile and sheet.forces:
-        total_forces = sum(f.total_strength for f in sheet.forces.values())
+        total_forces = sum(_get_attr(f, "total_strength", 0) for f in sheet.forces.values())
 
         # Validate percentages are reasonable
-        if sheet.casualty_profile.winner_casualties_percent > 100:
+        winner_casualties = _get_attr(sheet.casualty_profile, "winner_casualties_percent", 0)
+        loser_casualties = _get_attr(sheet.casualty_profile, "loser_casualties_percent", 0)
+        if winner_casualties > 100:
             violations.append(
                 ConsistencyViolation(
                     field="casualty_profile.winner_casualties_percent",
@@ -131,7 +153,7 @@ def check_force_consistency(sheet: ScenarioSheet) -> list[ConsistencyViolation]:
                 )
             )
 
-        if sheet.casualty_profile.loser_casualties_percent > 100:
+        if loser_casualties > 100:
             violations.append(
                 ConsistencyViolation(
                     field="casualty_profile.loser_casualties_percent",
@@ -160,21 +182,25 @@ def check_geography_consistency(sheet: ScenarioSheet) -> list[ConsistencyViolati
 
     # Check terrain type matches features
     terrain = sheet.terrain_weather
-    terrain_type = terrain.terrain_type.value
+    terrain_type_obj = _get_attr(terrain, "terrain_type", None)
+    terrain_type = terrain_type_obj.value if hasattr(terrain_type_obj, "value") else str(terrain_type_obj or "")
+    weather_obj = _get_attr(terrain, "weather", None)
+    weather = weather_obj.value if hasattr(weather_obj, "value") else str(weather_obj or "")
+    ground_conditions = _get_attr(terrain, "ground_conditions", "")
 
     # Simple heuristic checks
-    if terrain_type == "desert" and terrain.weather.value in ["snow", "heavy_rain"]:
+    if terrain_type == "desert" and weather in ["snow", "heavy_rain"]:
         violations.append(
             ConsistencyViolation(
                 field="terrain_weather",
                 violation_type="terrain_weather_mismatch",
-                description=f"Desert terrain with {terrain.weather.value} weather is unusual",
+                description=f"Desert terrain with {weather} weather is unusual",
                 severity="warning",
                 suggestion="Consider if this weather pattern is intentional for the scenario",
             )
         )
 
-    if terrain_type == "marsh" and terrain.ground_conditions == "firm":
+    if terrain_type == "marsh" and ground_conditions == "firm":
         violations.append(
             ConsistencyViolation(
                 field="terrain_weather",
@@ -200,14 +226,17 @@ def check_commander_knowledge(sheet: ScenarioSheet) -> list[ConsistencyViolation
 
     for dp in sheet.decision_points:
         # Check that information_missing isn't contradicted by rationale
-        for missing in dp.information_missing:
-            if missing.lower() in dp.rationale.lower():
+        info_missing = _get_attr(dp, "information_missing", [])
+        rationale = _get_attr(dp, "rationale", "")
+        commander = _get_attr(dp, "commander", "unknown")
+        for missing in info_missing:
+            if missing.lower() in rationale.lower():
                 violations.append(
                     ConsistencyViolation(
                         field="decision_points",
                         violation_type="fog_of_war_violation",
                         description=(
-                            f"Decision point for {dp.commander} references "
+                            f"Decision point for {commander} references "
                             f"'{missing}' in rationale but it's listed as unknown"
                         ),
                         severity="warning",
@@ -229,7 +258,8 @@ def check_anachronisms(sheet: ScenarioSheet) -> list[ConsistencyViolation]:
     """
     violations = []
 
-    era = sheet.era.value
+    era_obj = _get_attr(sheet, "era", None)
+    era = era_obj.value if hasattr(era_obj, "value") else str(era_obj or "")
     if era not in ERA_CONSTRAINTS:
         return violations  # Fantasy or unknown era, skip checks
 
@@ -238,16 +268,19 @@ def check_anachronisms(sheet: ScenarioSheet) -> list[ConsistencyViolation]:
 
     # Check force equipment
     for side_id, force in sheet.forces.items():
-        for unit in force.composition:
+        composition = _get_attr(force, "composition", [])
+        for unit in composition:
+            unit_type = _get_attr(unit, "unit_type", "")
+            equipment = _get_attr(unit, "equipment", [])
             # Check unit type
             for forbidden_item in forbidden:
-                if forbidden_item.lower() in unit.unit_type.lower():
+                if forbidden_item.lower() in unit_type.lower():
                     violations.append(
                         ConsistencyViolation(
                             field=f"forces.{side_id}.composition",
                             violation_type="anachronism",
                             description=(
-                                f"Unit type '{unit.unit_type}' references "
+                                f"Unit type '{unit_type}' references "
                                 f"'{forbidden_item}' which is anachronistic for {era} era"
                             ),
                             severity="error",
@@ -256,7 +289,7 @@ def check_anachronisms(sheet: ScenarioSheet) -> list[ConsistencyViolation]:
                     )
 
             # Check equipment
-            for equip in unit.equipment:
+            for equip in equipment:
                 for forbidden_item in forbidden:
                     if forbidden_item.lower() in equip.lower():
                         violations.append(
