@@ -34,3 +34,7 @@ node_modules/
 # Claude Code
 .claude/
 nul
+
+# Local launcher scripts (contain hardcoded paths)
+start.bat
+stop.bat
