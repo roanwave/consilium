@@ -317,13 +317,18 @@ class DeliberationEngine:
 
                 # Check certification
                 if certified:
+                    logger.info(f"Round {round_num} certified, stopping deliberation")
                     final_reason = reason
                     break
 
                 # Check if we should continue
                 if self._should_stop_early(round_result):
+                    logger.info(f"Round {round_num} has >= 3 structural objections, stopping")
                     final_reason = "structural issues require redesign"
                     break
+
+                # Continue to next round
+                logger.info(f"Round {round_num} not certified (reason: {reason}), continuing to round {round_num + 1}")
 
             # Final certification
             if certified:
@@ -381,10 +386,14 @@ class DeliberationEngine:
 
     def _should_stop_early(self, round_result: DeliberationRound) -> bool:
         """Check if we should stop deliberation early due to structural issues."""
-        structural_count = sum(
-            1 for f in round_result.filtered_objections
-            if f.objection_type == ObjectionType.STRUCTURAL
-        )
+        structural_count = 0
+        for f in round_result.filtered_objections:
+            obj_type = f.objection_type
+            # Handle both enum and string values
+            if obj_type == ObjectionType.STRUCTURAL or obj_type == "structural":
+                structural_count += 1
+
+        logger.debug(f"Structural objection count: {structural_count}")
         # Stop if too many structural issues
         return structural_count >= 3
 
@@ -400,13 +409,24 @@ class DeliberationEngine:
 
         # Add structural objections
         for f in round_result.filtered_objections:
-            if f.objection_type == ObjectionType.STRUCTURAL:
-                issues.append({
-                    "type": "structural_objection",
-                    "expert": f.original.expert,
-                    "target": f.original.target,
-                    "objection": f.original.objection,
-                })
+            obj_type = f.objection_type
+            if obj_type == ObjectionType.STRUCTURAL or obj_type == "structural":
+                # Handle both dict and model for f.original
+                orig = f.original
+                if isinstance(orig, dict):
+                    issues.append({
+                        "type": "structural_objection",
+                        "expert": orig.get("expert", "unknown"),
+                        "target": orig.get("target", "unknown"),
+                        "objection": orig.get("objection", "unknown"),
+                    })
+                else:
+                    issues.append({
+                        "type": "structural_objection",
+                        "expert": getattr(orig, "expert", "unknown"),
+                        "target": getattr(orig, "target", "unknown"),
+                        "objection": getattr(orig, "objection", "unknown"),
+                    })
 
         return issues
 

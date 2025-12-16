@@ -65,4 +65,7 @@ def get_objection_breakdown(
 
 def has_structural_objections(filtered: list[FilteredObjection]) -> bool:
     """Check if any objections are structural."""
-    return any(obj.objection_type == ObjectionType.STRUCTURAL for obj in filtered)
+    return any(
+        obj.objection_type == ObjectionType.STRUCTURAL or obj.objection_type == "structural"
+        for obj in filtered
+    )

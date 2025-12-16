@@ -46,7 +46,7 @@ async def check_certification(
     # Check for structural objections - allow some through
     structural_count = sum(
         1 for o in filtered_objections
-        if o.objection_type == ObjectionType.STRUCTURAL
+        if o.objection_type == ObjectionType.STRUCTURAL or o.objection_type == "structural"
     )
     if structural_count > max_structural_allowed:
         return False, f"Too many structural objections: {structural_count} (max {max_structural_allowed})"

@@ -834,10 +834,10 @@ class Moderator:
             error_count = sum(1 for v in violations if v.severity == "error")
             return False, f"{error_count} blocking consistency errors remain"
 
-        # Check for structural objections
+        # Check for structural objections (handle both enum and string)
         structural = [
             f for f in filtered_objections
-            if f.objection_type == ObjectionType.STRUCTURAL
+            if f.objection_type == ObjectionType.STRUCTURAL or f.objection_type == "structural"
         ]
         if structural:
             return False, f"{len(structural)} structural objections require scenario redesign"
