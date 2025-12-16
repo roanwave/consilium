@@ -2,10 +2,10 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Literal
+from typing import Any, Literal, Union
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # =============================================================================
@@ -121,20 +121,24 @@ class SessionStatus(str, Enum):
 class UnitComposition(BaseModel):
     """Composition of a military unit."""
 
-    unit_type: str = Field(description="Type of unit (e.g., 'heavy cavalry', 'pike')")
-    count: int = Field(ge=0, description="Number of troops")
-    quality: str = Field(description="Unit quality/training level")
-    equipment: list[str] = Field(default_factory=list, description="Notable equipment")
+    model_config = ConfigDict(extra="allow")
+
+    unit_type: str = Field(default="", description="Type of unit (e.g., 'heavy cavalry', 'pike')")
+    count: Union[int, str] = Field(default=0, description="Number of troops")
+    quality: str = Field(default="", description="Unit quality/training level")
+    equipment: Union[str, list[str]] = Field(default_factory=list, description="Notable equipment")
     notes: str = Field(default="", description="Additional notes")
 
 
 class Commander(BaseModel):
     """Commander information."""
 
-    name: str = Field(description="Commander name")
+    model_config = ConfigDict(extra="allow")
+
+    name: str = Field(default="Unknown", description="Commander name")
     title: str = Field(default="", description="Title or rank")
-    competence: CommanderCompetence = Field(description="Skill level")
-    personality_traits: list[str] = Field(
+    competence: Union[CommanderCompetence, str] = Field(default=CommanderCompetence.COMPETENT, description="Skill level")
+    personality_traits: Union[str, list[str]] = Field(
         default_factory=list, description="Relevant personality traits"
     )
     known_for: str = Field(default="", description="What they're known for")
@@ -142,30 +146,34 @@ class Commander(BaseModel):
     @property
     def notable_traits(self) -> list[str]:
         """Alias for personality_traits for backward compatibility."""
+        if isinstance(self.personality_traits, str):
+            return [self.personality_traits] if self.personality_traits else []
         return self.personality_traits
 
 
 class ForceDescription(BaseModel):
     """Description of one side's forces."""
 
-    side_name: str = Field(description="Name/identifier for this side")
-    total_strength: int = Field(ge=0, description="Total troop count")
-    composition: list[UnitComposition] = Field(
+    model_config = ConfigDict(extra="allow")
+
+    side_name: str = Field(default="", description="Name/identifier for this side")
+    total_strength: Union[int, str] = Field(default=0, description="Total troop count")
+    composition: Union[list[dict], list[UnitComposition]] = Field(
         default_factory=list, description="Unit breakdown"
     )
-    commander: Commander = Field(description="Commanding officer")
-    sub_commanders: list[Commander] = Field(
+    commander: Union[dict, Commander, None] = Field(default=None, description="Commanding officer")
+    sub_commanders: Union[list[dict], list[Commander]] = Field(
         default_factory=list, description="Subordinate commanders"
     )
     morale: str = Field(default="steady", description="Overall morale state")
-    morale_factors: list[str] = Field(
+    morale_factors: Union[str, list[str]] = Field(
         default_factory=list, description="Factors affecting morale"
     )
     supply_state: str = Field(default="adequate", description="Supply situation")
     equipment: str | None = Field(default=None, description="Equipment description")
     armor_quality: str | None = Field(default=None, description="Armor quality assessment")
-    objectives: list[str] = Field(default_factory=list, description="Strategic objectives")
-    constraints: list[str] = Field(
+    objectives: Union[str, list[str]] = Field(default_factory=list, description="Strategic objectives")
+    constraints: Union[str, list[str]] = Field(
         default_factory=list, description="Operational constraints"
     )
 
@@ -173,28 +181,32 @@ class ForceDescription(BaseModel):
 class TerrainFeature(BaseModel):
     """A notable terrain feature."""
 
-    name: str = Field(description="Feature name")
-    description: str = Field(description="Feature description")
-    tactical_impact: str = Field(description="How it affects battle")
+    model_config = ConfigDict(extra="allow")
+
+    name: str = Field(default="", description="Feature name")
+    description: str = Field(default="", description="Feature description")
+    tactical_impact: str = Field(default="", description="How it affects battle")
 
 
 class TerrainWeather(BaseModel):
     """Terrain and weather conditions."""
 
-    terrain_type: TerrainType = Field(description="Primary terrain")
-    defining_feature: str = Field(description="The one defining terrain feature")
-    features: list[TerrainFeature] = Field(
+    model_config = ConfigDict(extra="allow")
+
+    terrain_type: Union[TerrainType, str] = Field(default=TerrainType.PLAINS, description="Primary terrain")
+    defining_feature: str = Field(default="", description="The one defining terrain feature")
+    features: Union[list[dict], list[TerrainFeature]] = Field(
         default_factory=list, description="Notable features"
     )
-    weather: WeatherCondition = Field(default=WeatherCondition.CLEAR)
+    weather: Union[WeatherCondition, str] = Field(default=WeatherCondition.CLEAR)
     visibility: str = Field(default="good", description="Visibility conditions")
     ground_conditions: str = Field(default="firm", description="Ground state")
     time_of_day: str = Field(default="morning", description="Time of engagement")
     season: str = Field(default="summer", description="Season")
-    what_matters: list[str] = Field(
+    what_matters: Union[str, list[str]] = Field(
         default_factory=list, description="Terrain factors that matter"
     )
-    what_doesnt: list[str] = Field(
+    what_doesnt: Union[str, list[str]] = Field(
         default_factory=list, description="Terrain factors that don't matter"
     )
 
@@ -202,27 +214,31 @@ class TerrainWeather(BaseModel):
 class TimelineEvent(BaseModel):
     """An event in the battle timeline."""
 
-    timestamp: str = Field(description="Relative timestamp (e.g., 'H+30m', 'Dawn')")
-    event: str = Field(description="What happens")
+    model_config = ConfigDict(extra="allow")
+
+    timestamp: str = Field(default="", description="Relative timestamp (e.g., 'H+30m', 'Dawn')")
+    event: str = Field(default="", description="What happens")
     triggered_by: str = Field(default="", description="What caused this event")
-    consequences: list[str] = Field(default_factory=list, description="Immediate effects")
+    consequences: Union[str, list[str]] = Field(default_factory=list, description="Immediate effects")
     fog_of_war: str = Field(default="", description="What commanders don't know")
 
 
 class DecisionPoint(BaseModel):
     """A point where commanders must choose under uncertainty."""
 
-    timestamp: str = Field(description="When this decision occurs")
-    commander: str = Field(description="Who must decide")
-    situation: str = Field(description="The situation faced")
-    options: list[str] = Field(description="Available choices")
+    model_config = ConfigDict(extra="allow")
+
+    timestamp: str = Field(default="", description="When this decision occurs")
+    commander: str = Field(default="", description="Who must decide")
+    situation: str = Field(default="", description="The situation faced")
+    options: Union[str, list[str]] = Field(default_factory=list, description="Available choices")
     chosen: str = Field(default="", description="What was chosen")
     rationale: str = Field(default="", description="Why this choice")
-    consequences: str = Field(default="", description="What resulted")
-    information_available: list[str] = Field(
+    consequences: Union[str, dict, list[str]] = Field(default="", description="What resulted")
+    information_available: Union[str, list[str]] = Field(
         default_factory=list, description="What the commander knew"
     )
-    information_missing: list[str] = Field(
+    information_missing: Union[str, list[str]] = Field(
         default_factory=list, description="What they didn't know"
     )
 
@@ -230,31 +246,40 @@ class DecisionPoint(BaseModel):
 class CasualtyProfile(BaseModel):
     """Casualty and attrition pattern."""
 
-    winner_casualties_percent: float = Field(
-        ge=0, le=100, description="Winner casualties as percentage"
+    model_config = ConfigDict(extra="allow")
+
+    winner_casualties_percent: Union[float, int, str, None] = Field(
+        default=None, description="Winner casualties as percentage"
     )
-    loser_casualties_percent: float = Field(
-        ge=0, le=100, description="Loser casualties as percentage"
+    loser_casualties_percent: Union[float, int, str, None] = Field(
+        default=None, description="Loser casualties as percentage"
     )
-    casualty_distribution: str = Field(
+    total_casualties: Union[int, str, None] = Field(
+        default=None, description="Total casualties"
+    )
+    killed: Union[int, str, None] = Field(default=None, description="Killed count")
+    wounded: Union[int, str, None] = Field(default=None, description="Wounded count")
+    casualty_distribution: Union[str, dict, None] = Field(
         default="", description="How casualties distributed across units"
     )
-    notable_deaths: list[str] = Field(
+    notable_deaths: Union[str, list[str]] = Field(
         default_factory=list, description="Notable casualties"
     )
     medical_notes: str = Field(default="", description="Medical/injury patterns")
-    prisoners: str = Field(default="", description="Prisoner situation")
+    prisoners: Union[str, int, None] = Field(default="", description="Prisoner situation")
     pursuit_casualties: str = Field(default="", description="Casualties during pursuit/rout")
 
 
 class MagicSystem(BaseModel):
     """Magic system constraints if magic is present."""
 
-    present: bool = Field(default=False, description="Is magic present?")
-    constraints: list[str] = Field(
+    model_config = ConfigDict(extra="allow")
+
+    present: Union[bool, str] = Field(default=False, description="Is magic present?")
+    constraints: Union[str, list[str]] = Field(
         default_factory=list, description="Constraints on magic use"
     )
-    practitioners: list[str] = Field(
+    practitioners: Union[str, list[str]] = Field(
         default_factory=list, description="Who can use magic"
     )
     tactical_role: str = Field(default="", description="How magic affects tactics")
@@ -270,35 +295,37 @@ class ScenarioSheet(BaseModel):
     The canonical state object. Moderator owns this; experts propose deltas.
     """
 
+    model_config = ConfigDict(extra="allow")
+
     version: int = Field(default=0, description="Increments on each certified change")
 
     # Core fields
-    era: Era = Field(description="Historical era")
+    era: Union[Era, str] = Field(default=Era.HIGH_MEDIEVAL, description="Historical era")
     theater: str = Field(default="", description="Geographic region/theater")
-    stakes: str = Field(description="Why this battle happens")
-    constraints: list[str] = Field(
+    stakes: str = Field(default="", description="Why this battle happens")
+    constraints: Union[str, list[str]] = Field(
         default_factory=list, description="Political/logistical/terrain constraints"
     )
-    forces: dict[str, ForceDescription] = Field(
+    forces: Union[dict[str, Any], dict[str, ForceDescription]] = Field(
         default_factory=dict, description="Forces keyed by side identifier"
     )
-    terrain_weather: TerrainWeather | None = Field(
+    terrain_weather: Union[dict, TerrainWeather, None] = Field(
         default=None, description="Terrain and weather"
     )
-    timeline: list[TimelineEvent] = Field(
+    timeline: Union[list[dict], list[TimelineEvent]] = Field(
         default_factory=list, description="Anchor events with timestamps"
     )
-    decision_points: list[DecisionPoint] = Field(
+    decision_points: Union[list[dict], list[DecisionPoint]] = Field(
         default_factory=list, description="Where commanders choose under uncertainty"
     )
-    casualty_profile: CasualtyProfile | None = Field(
+    casualty_profile: Union[dict, CasualtyProfile, None] = Field(
         default=None, description="Plausible injury/attrition pattern"
     )
     aftermath: str = Field(default="", description="Immediate campaign consequence")
-    open_risks: list[str] = Field(
+    open_risks: Union[str, list[str]] = Field(
         default_factory=list, description="Known vulnerabilities accepted by commanders"
     )
-    magic: MagicSystem = Field(
+    magic: Union[dict, MagicSystem] = Field(
         default_factory=MagicSystem, description="Magic system if present"
     )
 
@@ -328,24 +355,28 @@ class ScenarioSheet(BaseModel):
 class DeltaRequest(BaseModel):
     """A proposed edit to the ScenarioSheet."""
 
-    field: str = Field(description="ScenarioSheet field name (dot notation for nested)")
-    operation: DeltaOperation = Field(description="Type of operation")
-    value: Any = Field(description="New value or modification")
-    rationale: str = Field(description="Why this change")
+    model_config = ConfigDict(extra="allow")
+
+    field: str = Field(default="", description="ScenarioSheet field name (dot notation for nested)")
+    operation: Union[DeltaOperation, str] = Field(default=DeltaOperation.SET, description="Type of operation")
+    value: Any = Field(default=None, description="New value or modification")
+    rationale: str = Field(default="", description="Why this change")
 
 
 class ExpertContribution(BaseModel):
     """Structured output from an expert."""
 
-    expert: str = Field(description="Expert codename")
-    domain_claims: list[str] = Field(description="Bullet claims strictly in-domain")
-    assumptions: list[str] = Field(
+    model_config = ConfigDict(extra="allow")
+
+    expert: str = Field(default="", description="Expert codename")
+    domain_claims: Union[str, list[str]] = Field(default_factory=list, description="Bullet claims strictly in-domain")
+    assumptions: Union[str, list[str]] = Field(
         default_factory=list, description="What they assumed because unknown"
     )
-    questions_remaining: list[str] = Field(
+    questions_remaining: Union[str, list[str]] = Field(
         default_factory=list, description="What they still need answered"
     )
-    delta_requests: list[DeltaRequest] = Field(
+    delta_requests: Union[list[dict], list[DeltaRequest]] = Field(
         default_factory=list, description="Proposed edits to ScenarioSheet"
     )
     narrative_fragment: str = Field(
@@ -356,11 +387,17 @@ class ExpertContribution(BaseModel):
 class RedTeamObjection(BaseModel):
     """An objection from a red team expert."""
 
-    expert: str = Field(description="Expert codename")
-    target: str = Field(description="What is being objected to")
-    objection: str = Field(description="The objection")
-    severity: str = Field(description="How serious")
+    model_config = ConfigDict(extra="allow")
+
+    expert: str = Field(default="", description="Expert codename")
+    target: str = Field(default="", description="What is being objected to")
+    objection: str = Field(default="", description="The objection")
+    severity: str = Field(default="minor", description="How serious")
     suggestion: str = Field(default="", description="Suggested fix")
+    # Additional fields LLMs might return
+    objection_type: str = Field(default="", description="Type of objection")
+    target_field: str = Field(default="", description="Target field")
+    suggested_resolution: str = Field(default="", description="Suggested resolution")
 
 
 class FilteredObjection(BaseModel):
