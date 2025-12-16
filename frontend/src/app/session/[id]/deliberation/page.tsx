@@ -21,7 +21,7 @@ export default function DeliberationPage() {
   }, [startDeliberation]);
 
   useEffect(() => {
-    if (state.status === "certified" || state.status === "failed") {
+    if (state.status === "complete") {
       // Navigate to output page after a short delay
       const timer = setTimeout(() => {
         router.push(`/session/${sessionId}/output`);
@@ -71,24 +71,23 @@ export default function DeliberationPage() {
           <CardContent>
             <ScrollArea className="h-[500px] pr-4">
               <div className="space-y-4">
-                {state.expertContributions.length === 0 ? (
+                {state.contributions.length === 0 ? (
                   <p className="text-war-muted text-sm italic">
                     Waiting for expert contributions...
                   </p>
                 ) : (
-                  state.expertContributions.map((contribution, index) => (
+                  state.contributions.map((contribution: any, index: number) => (
                     <div key={index} className="deliberation-entry expert">
                       <div className="flex items-center gap-2 mb-2">
                         <Badge variant="secondary" className="capitalize">
-                          {contribution.expert}
+                          {contribution.expert || "Expert"}
                         </Badge>
-                        <span className="text-xs text-war-muted">
-                          Round {contribution.round}
-                        </span>
                       </div>
-                      <p className="text-sm text-war-text whitespace-pre-wrap">
-                        {contribution.content}
-                      </p>
+                      <div className="text-sm text-war-text whitespace-pre-wrap">
+                        {contribution.domain_claims?.map((claim: string, i: number) => (
+                          <p key={i} className="mb-1">• {claim}</p>
+                        )) || contribution.narrative_fragment || JSON.stringify(contribution)}
+                      </div>
                     </div>
                   ))
                 )}
@@ -108,27 +107,31 @@ export default function DeliberationPage() {
           <CardContent>
             <ScrollArea className="h-[500px] pr-4">
               <div className="space-y-4">
-                {state.redTeamObjections.length === 0 ? (
+                {state.objections.length === 0 ? (
                   <p className="text-war-muted text-sm italic">
                     Waiting for red team review...
                   </p>
                 ) : (
-                  state.redTeamObjections.map((objection, index) => (
+                  state.objections.map((objection: any, index: number) => (
                     <div key={index} className="deliberation-entry redteam">
                       <div className="flex items-center gap-2 mb-2">
                         <Badge variant="destructive" className="capitalize">
-                          {objection.challenger}
+                          {objection.expert || "Red Team"}
                         </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          {objection.severity}
-                        </Badge>
-                        <span className="text-xs text-war-muted">
-                          Round {objection.round}
-                        </span>
+                        {objection.severity && (
+                          <Badge variant="outline" className="text-xs">
+                            {objection.severity}
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-war-text whitespace-pre-wrap">
-                        {objection.objection}
+                        <strong>{objection.target}:</strong> {objection.objection}
                       </p>
+                      {objection.suggestion && (
+                        <p className="text-xs text-war-muted mt-1">
+                          Suggestion: {objection.suggestion}
+                        </p>
+                      )}
                     </div>
                   ))
                 )}
@@ -139,7 +142,7 @@ export default function DeliberationPage() {
       </div>
 
       {/* Status Footer */}
-      {state.status === "certified" && (
+      {state.status === "complete" && state.certified && (
         <div className="mt-8 p-6 war-panel war-glow-strong border-war-accent text-center">
           <h2 className="text-2xl font-bold text-war-accent mb-2">Analysis Certified</h2>
           <p className="text-war-muted">
@@ -148,7 +151,7 @@ export default function DeliberationPage() {
         </div>
       )}
 
-      {state.status === "failed" && (
+      {state.status === "complete" && !state.certified && (
         <div className="mt-8 p-6 war-panel border-red-600 text-center">
           <h2 className="text-2xl font-bold text-red-500 mb-2">Certification Failed</h2>
           <p className="text-war-muted">
@@ -172,8 +175,7 @@ function StatusBadge({ status }: { status: string }) {
     idle: { variant: "outline", label: "Idle" },
     connecting: { variant: "secondary", label: "Connecting..." },
     deliberating: { variant: "default", label: "Deliberating" },
-    certified: { variant: "default", label: "Certified" },
-    failed: { variant: "destructive", label: "Failed" },
+    complete: { variant: "default", label: "Complete" },
     error: { variant: "destructive", label: "Error" },
   };
 

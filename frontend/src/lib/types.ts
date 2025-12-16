@@ -2,6 +2,7 @@ export interface Question {
   id: string;
   type: "text" | "textarea" | "select" | "boolean";
   question: string;
+  text?: string; // alias for question (backward compat)
   options?: { value: string; label: string }[];
   placeholder?: string;
   required: boolean;

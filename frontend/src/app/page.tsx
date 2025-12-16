@@ -20,7 +20,7 @@ export default function LandingPage() {
     setError(null);
 
     try {
-      const response = await createScenario({ scenario });
+      const response = await createScenario({ prompt: scenario });
       router.push(`/session/${response.session_id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create scenario");
