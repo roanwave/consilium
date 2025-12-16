@@ -302,7 +302,7 @@ class ScenarioSheet(BaseModel):
     # Core fields
     era: Union[Era, str] = Field(default=Era.HIGH_MEDIEVAL, description="Historical era")
     theater: str = Field(default="", description="Geographic region/theater")
-    stakes: str = Field(default="", description="Why this battle happens")
+    stakes: Union[str, dict, list, Any] = Field(default="", description="Why this battle happens")
     constraints: Union[str, list[str]] = Field(
         default_factory=list, description="Political/logistical/terrain constraints"
     )
@@ -312,7 +312,7 @@ class ScenarioSheet(BaseModel):
     terrain_weather: Union[dict, TerrainWeather, None] = Field(
         default=None, description="Terrain and weather"
     )
-    timeline: Union[list[dict], list[TimelineEvent]] = Field(
+    timeline: Union[str, list, dict, Any] = Field(
         default_factory=list, description="Anchor events with timestamps"
     )
     decision_points: Union[list[dict], list[DecisionPoint]] = Field(
