@@ -35,6 +35,6 @@ node_modules/
 .claude/
 nul
 
-# Local launcher scripts (contain hardcoded paths)
-start.bat
-stop.bat
+# Legacy launcher scripts
+start-legacy.bat
+stop-legacy.bat

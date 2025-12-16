@@ -1,0 +1,181 @@
+{
+  "session_id": "453ea4ce-bfd7-446f-9bf3-1164c93392cd",
+  "status": "certified",
+  "sheet": {
+    "version": 2,
+    "era": "high_medieval",
+    "theater": "Western European river valley",
+    "stakes": "The attackers are a mercenary company that must cross before winter or face starvation. The defenders are local levies protecting their lord's lands. Honor demands the lord's household troops die before yielding, while mercenary brotherhood means they cannot abandon wounded comrades in the crossing.",
+    "constraints": "The defending lord cannot appear weak before his vassals and peasants, yet cannot afford losses that would leave his domain defenseless. The mercenaries cannot retreat without facing certain death, but cannot afford a pyrrhic victory that leaves them too weakened to survive winter campaigns.",
+    "forces": {
+      "side_a": {
+        "side_name": "Side A",
+        "total_strength": 3000,
+        "composition": [],
+        "commander": {
+          "name": "Commander A",
+          "title": "",
+          "competence": "skilled",
+          "personality_traits": [],
+          "known_for": ""
+        },
+        "sub_commanders": [],
+        "morale": "steady",
+        "morale_factors": [],
+        "supply_state": "adequate",
+        "equipment": "Mixed professional arms: mail hauberks and coifs, varied swords and axes, crossbows with pavises, some polearms. Equipment shows wear from campaign use but remains serviceable.",
+        "armor_quality": "good",
+        "objectives": [],
+        "constraints": []
+      },
+      "side_b": {
+        "side_name": "Side B",
+        "total_strength": 1500,
+        "composition": [],
+        "commander": {
+          "name": "Commander B",
+          "title": "",
+          "competence": "competent",
+          "personality_traits": [],
+          "known_for": ""
+        },
+        "sub_commanders": [],
+        "morale": "steady",
+        "morale_factors": [],
+        "supply_state": "adequate",
+        "equipment": "Militia arms: ash spears, round shields, padded gambesons or leather jerkins, hunting bows, seaxes and farm tools pressed into service. Some mail among sergeants and better-equipped men-at-arms.",
+        "armor_quality": "poor",
+        "objectives": [],
+        "constraints": []
+      }
+    },
+    "terrain_weather": {
+      "terrain_type": "river_crossing",
+      "defining_feature": "Muddy ford with steep banks on defender side. Woods on attacker's left flank.",
+      "features": [
+        {
+          "name": "Ford bottleneck",
+          "description": "Muddy crossing allows only 2-3 men abreast with secure footing",
+          "tactical_impact": "Forces attackers into killing funnel, prevents mass assault"
+        },
+        {
+          "name": "Defensive escarpment",
+          "description": "Steep banks on defender side create 8-foot elevation advantage",
+          "tactical_impact": "Attackers must climb while defenders strike down, negates shield advantage"
+        }
+      ],
+      "weather": "clear",
+      "visibility": "good",
+      "ground_conditions": "firm",
+      "time_of_day": "morning",
+      "season": "summer",
+      "what_matters": [],
+      "what_doesnt": []
+    },
+    "timeline": [],
+    "decision_points": [
+      {
+        "timestamp": "Dawn - Battle Opens",
+        "commander": "Commander A",
+        "situation": "Mercenaries approach ford, face defender positions on high ground",
+        "options": [
+          "Direct assault across ford",
+          "Probe for alternate crossings",
+          "Combined frontal assault with flanking maneuver through woods"
+        ],
+        "chosen": "Combined frontal assault with flanking maneuver",
+        "rationale": "Cannot afford time to find other crossings - winter approaches and supplies dwindling",
+        "consequences": "Commits majority of force to dangerous frontal crossing while detaching 500 men for woods flanking"
+      },
+      {
+        "timestamp": "Mid-morning - First Crossing Attempt",
+        "commander": "Commander A",
+        "situation": "Lead companies take heavy casualties in ford from levy missiles, men hesitating at water's edge",
+        "options": [
+          "Press the assault despite losses",
+          "Pull back and wait for flanking force",
+          "Commit reserves to overwhelm crossing"
+        ],
+        "chosen": "Commit reserves to overwhelm crossing",
+        "rationale": "Cannot show weakness to mercenary companies - hesitation breeds mutiny",
+        "consequences": "Mercenaries establish precarious foothold but at terrible cost in the killing ground of the ford"
+      },
+      {
+        "timestamp": "Late morning - Flankers Emerge",
+        "commander": "Commander B",
+        "situation": "Mercenary flanking force emerges from woods behind levy positions, threatens rear",
+        "options": [
+          "Turn half the force to face flankers",
+          "Maintain position and fight on two fronts",
+          "Conduct fighting withdrawal to secondary positions"
+        ],
+        "chosen": "Turn half the force to face flankers",
+        "rationale": "Cannot allow rear to be compromised - would collapse entire position",
+        "consequences": "Reduces pressure on ford crossing but creates gap that mercenaries exploit"
+      },
+      {
+        "timestamp": "As first mercenary formations approach the ford",
+        "commander": "Commander A",
+        "situation": "Watching his lead elements take heavy casualties in the bottleneck",
+        "information_available": "Can see the ford is defended, casualties mounting, but cannot assess flanking force progress through woods",
+        "options": [
+          "Commit reserves to push through",
+          "Pull back and regroup",
+          "Wait for flanking attack"
+        ],
+        "chosen": "Must decide without knowing if flanking force is in position",
+        "execution_risk": "Orders may not reach units already committed to crossing"
+      },
+      {
+        "timestamp": "When flanking force emerges from woods",
+        "commander": "Commander B",
+        "situation": "Suddenly facing attack from behind while committed to defending the ford",
+        "information_available": "Can see immediate threat but unsure of enemy force size or intentions",
+        "options": [
+          "Turn reserves to face flankers",
+          "Hold position at ford",
+          "Attempt fighting withdrawal"
+        ],
+        "chosen": "Must choose instantly without time to assess full situation",
+        "execution_risk": "Levy troops may break if they feel surrounded"
+      }
+    ],
+    "casualty_profile": {
+      "primary_wound_types": [
+        "crossbow_bolt_punctures",
+        "arrow_wounds",
+        "drowning",
+        "crushing_injuries_from_fall"
+      ],
+      "killed_to_wounded_ratio": "1:2",
+      "immediate_mortality": "35%",
+      "post_battle_mortality": "40% of wounded within 3 days",
+      "medical_capacity": "basic_wound_binding_only",
+      "treatment_limitations": [
+        "no_antiseptics",
+        "no_surgery",
+        "contaminated_river_water",
+        "no_trained_surgeons"
+      ],
+      "medical_notes": "The ford becomes a killing ground. Crossbow bolts punch through mail at close range, creating deep puncture wounds that bleed internally. Men struck while crossing either drown immediately or crawl to shore with contaminated wounds. Those who survive the crossing face cuts and gashes from melee, but it's the bolt wounds that kill - either quickly from severed vessels, or slowly from corruption. In this era, a punctured lung or belly wound is a death sentence. The real slaughter happens in the water where wounded men simply disappear beneath the surface."
+    },
+    "aftermath": "",
+    "open_risks": [],
+    "magic": {
+      "present": false,
+      "constraints": [],
+      "practitioners": [],
+      "tactical_role": ""
+    },
+    "last_modified_by": "moderator",
+    "consistency_hash": "7e27904b31c30507"
+  },
+  "narrative": "",
+  "total_token_usage": {
+    "input_tokens": 12310,
+    "output_tokens": 6655,
+    "cache_read_tokens": 0,
+    "cache_creation_tokens": 0,
+    "model": ""
+  }
+}

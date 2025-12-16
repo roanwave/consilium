@@ -1,0 +1,165 @@
+{
+  "session_id": "5c7c8a22-cf25-42a8-8a86-dceac2906e75",
+  "status": "certified",
+  "sheet": {
+    "version": 2,
+    "era": "high_medieval",
+    "theater": "Western European river valley",
+    "stakes": "The mercenary company faces winter starvation unless they secure passage and winter quarters, while the defending lord must prove his feudal competence\u2014failure to defend his lands invites future predation and questions his legitimacy among vassals and overlords alike. This is fundamentally a test of feudal order against mercenary desperation.",
+    "constraints": "The defending lord cannot negotiate passage without appearing weak to his feudal superiors and inviting future mercenary incursions. The mercenary company cannot retreat without facing certain winter death, eliminating any possibility of tactical withdrawal.",
+    "forces": {
+      "side_a": {
+        "side_name": "Side A",
+        "total_strength": 3000,
+        "composition": [],
+        "commander": {
+          "name": "Commander A",
+          "title": "",
+          "competence": "skilled",
+          "personality_traits": [],
+          "known_for": ""
+        },
+        "sub_commanders": [],
+        "morale": "steady",
+        "morale_factors": [],
+        "supply_state": "adequate",
+        "equipment": "Professional mercenary kit: mail hauberks with coifs, steel caps or early bascinets, crossbows with pavises, falchions and war hammers, reinforced leather boots, smaller heater shields optimized for mobility",
+        "armor_quality": "good",
+        "objectives": [],
+        "constraints": []
+      },
+      "side_b": {
+        "side_name": "Side B",
+        "total_strength": 1500,
+        "composition": [],
+        "commander": {
+          "name": "Commander B",
+          "title": "",
+          "competence": "competent",
+          "personality_traits": [],
+          "known_for": ""
+        },
+        "sub_commanders": [],
+        "morale": "steady",
+        "morale_factors": [],
+        "supply_state": "adequate but time-constrained - winter deadline forces immediate action",
+        "equipment": "Mixed feudal levy: padded gambesons, leather jerkins, scattered mail shirts among sergeants, longbows and hunting bows, spears, axes, falchions, large wooden shields reinforced with iron, simple steel caps and kettle hats",
+        "armor_quality": "poor_to_fair",
+        "objectives": [],
+        "constraints": []
+      }
+    },
+    "terrain_weather": {
+      "terrain_type": "river_crossing",
+      "defining_feature": "Muddy ford with steep banks on defender side. Woods on attacker's left flank.",
+      "features": [
+        {
+          "name": "Muddy Ford Bottleneck",
+          "description": "The crossing point forces attackers into a narrow column vulnerable to concentrated fire",
+          "tactical_impact": "Attackers cannot deploy in line formation while crossing; defenders can concentrate missiles on predictable approach routes"
+        },
+        {
+          "name": "Defender's Elevation Advantage",
+          "description": "Steep banks provide commanding height over the ford approach and crossing",
+          "tactical_impact": "Missile weapons gain increased range and accuracy downhill; attackers fight uphill in mud while exposed"
+        },
+        {
+          "name": "Flanking Woods",
+          "description": "Dense woodland on the attacker's left offers concealment but restricts formation movement",
+          "tactical_impact": "Enables surprise flanking attempts but prevents coordinated charges; defenders must split attention between ford and woods"
+        }
+      ],
+      "weather": "clear",
+      "visibility": "good",
+      "ground_conditions": "firm",
+      "time_of_day": "morning",
+      "season": "summer",
+      "what_matters": [],
+      "what_doesnt": []
+    },
+    "timeline": [
+      {
+        "phase": "Opening Phase",
+        "events": [
+          "Mercenary feint begins crossing under covering fire",
+          "Main flanking force enters woods on left",
+          "Defenders rain missiles on ford crossing",
+          "First mercenary wave takes heavy casualties but establishes foothold"
+        ]
+      }
+    ],
+    "decision_points": [
+      {
+        "timestamp": "Dawn - Initial deployment",
+        "commander": "Commander A",
+        "situation": "Faces defended ford with 2:1 advantage but tactical disadvantage",
+        "options": [
+          "Direct assault across ford",
+          "Flanking movement through woods",
+          "Feint at ford while main force flanks"
+        ],
+        "chosen": "Feint at ford while main force flanks",
+        "rationale": "Cannot afford frontal casualties with winter approaching, must use tactical skill to overcome terrain disadvantage",
+        "consequences": "Splits force but preserves strength for decisive action"
+      },
+      {
+        "timestamp": "Mid-morning - Flanking force detected",
+        "commander": "Commander B",
+        "situation": "Scouts report movement in woods while ford assault begins",
+        "options": [
+          "Hold position and trust terrain advantage",
+          "Detach force to counter flanking movement",
+          "Withdraw to secondary position"
+        ],
+        "chosen": "Detach force to counter flanking movement",
+        "rationale": "Cannot allow mercenaries to gain rear position, must prevent encirclement",
+        "consequences": "Weakens main line just as ford assault intensifies"
+      },
+      {
+        "timestamp": "As mercenaries approach the ford",
+        "commander": "Commander A",
+        "situation": "Must commit to crossing while under increasing missile fire from concealed positions",
+        "information_available": "Can see the ford and some defenders, but cannot assess full defensive strength or positioning",
+        "options": [
+          "Direct assault across the ford",
+          "Flanking movement through woods",
+          "Feint and probe for weakness"
+        ],
+        "chosen": "TBD",
+        "execution_risk": "Once committed to crossing, cannot easily redirect forces or withdraw under fire"
+      },
+      {
+        "timestamp": "When first mercenary wave enters the water",
+        "commander": "Commander B",
+        "situation": "Must decide when to reveal full defensive strength and begin concentrated fire",
+        "information_available": "Can observe enemy approach and estimate numbers, but cannot know their true desperation or commitment level",
+        "options": [
+          "Early engagement to maximize casualties in water",
+          "Wait until more enemies are committed",
+          "Focus fire on officers to break command"
+        ],
+        "chosen": "TBD",
+        "execution_risk": "Levy troops may break if they take heavy casualties or if mercenaries reach the bank"
+      }
+    ],
+    "casualty_profile": null,
+    "aftermath": "",
+    "open_risks": [],
+    "magic": {
+      "present": false,
+      "constraints": [],
+      "practitioners": [],
+      "tactical_role": ""
+    },
+    "last_modified_by": "moderator",
+    "consistency_hash": "28bed87018ebf411"
+  },
+  "narrative": "",
+  "total_token_usage": {
+    "input_tokens": 13661,
+    "output_tokens": 7362,
+    "cache_read_tokens": 0,
+    "cache_creation_tokens": 0,
+    "model": ""
+  }
+}
