@@ -53,6 +53,11 @@ export function useDeliberation(sessionId: string | null) {
         const data = JSON.parse(e.data);
         const eventType = data.event_type || "unknown";
 
+        // Ignore heartbeat events - they just keep the connection alive
+        if (eventType === "heartbeat") {
+          return;
+        }
+
         setState((s) => {
           const newState = { ...s };
           newState.events = [...s.events, { type: eventType, data, sequence: data.sequence }];
