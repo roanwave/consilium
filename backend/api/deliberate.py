@@ -53,25 +53,38 @@ async def deliberate(
     async def event_generator():
         """Generate SSE events for deliberation with heartbeat keep-alive."""
         llm_client = LLMClient()
+        event_queue: asyncio.Queue = asyncio.Queue()
+        engine_task = None
 
         # Heartbeat SSE format - must include event_type in data for frontend
         def make_heartbeat() -> str:
             return f"event: heartbeat\ndata: {json.dumps({'event_type': 'heartbeat', 'message': 'Processing...'})}\n\n"
 
+        async def run_engine():
+            """Run the engine and put events on the queue."""
+            try:
+                await llm_client._ensure_clients()
+
+                engine = DeliberationEngine(
+                    session=session,
+                    llm_client=llm_client,
+                )
+
+                session.status = SessionStatus.DELIBERATING
+                await store.save(session)
+
+                async for event in engine.run():
+                    await event_queue.put(("event", event))
+
+                await event_queue.put(("done", None))
+
+            except Exception as e:
+                logger.exception(f"Engine error for session {session_id}")
+                await event_queue.put(("error", e))
+
         try:
-            await llm_client._ensure_clients()
-
-            engine = DeliberationEngine(
-                session=session,
-                llm_client=llm_client,
-            )
-
-            session.status = SessionStatus.DELIBERATING
-            await store.save(session)
-
-            # Create async iterator from engine
-            engine_iter = engine.run().__aiter__()
-            last_event_time = asyncio.get_event_loop().time()
+            # Start engine in background task - runs independently
+            engine_task = asyncio.create_task(run_engine())
 
             while True:
                 # Check for client disconnect
@@ -80,13 +93,19 @@ async def deliberate(
                     break
 
                 try:
-                    # Wait for next event with timeout for heartbeat
-                    event = await asyncio.wait_for(
-                        engine_iter.__anext__(),
+                    # Wait for event with timeout - does NOT cancel the engine task
+                    msg_type, payload = await asyncio.wait_for(
+                        event_queue.get(),
                         timeout=HEARTBEAT_INTERVAL
                     )
-                    last_event_time = asyncio.get_event_loop().time()
+                except asyncio.TimeoutError:
+                    # Queue.get() timed out - send heartbeat and keep waiting
+                    logger.debug(f"Sending heartbeat for session {session_id}")
+                    yield make_heartbeat()
+                    continue
 
+                if msg_type == "event":
+                    event = payload
                     # Skip events before reconnection point
                     if event.sequence < start_sequence:
                         continue
@@ -102,14 +121,17 @@ async def deliberate(
                     ]:
                         await store.save(session)
 
-                except asyncio.TimeoutError:
-                    # No event in HEARTBEAT_INTERVAL seconds - send heartbeat
-                    logger.debug(f"Sending heartbeat for session {session_id}")
-                    yield make_heartbeat()
-
-                except StopAsyncIteration:
-                    # Engine finished
+                elif msg_type == "done":
                     logger.info(f"Deliberation complete for session {session_id}")
+                    break
+
+                elif msg_type == "error":
+                    error_data = json.dumps({
+                        "event_type": "error",
+                        "error": str(payload),
+                        "type": type(payload).__name__
+                    })
+                    yield f"event: error\ndata: {error_data}\n\n"
                     break
 
         except Exception as e:
@@ -122,6 +144,12 @@ async def deliberate(
             yield f"event: error\ndata: {error_data}\n\n"
 
         finally:
+            if engine_task and not engine_task.done():
+                engine_task.cancel()
+                try:
+                    await engine_task
+                except asyncio.CancelledError:
+                    pass
             await llm_client.close()
 
     return EventSourceResponse(event_generator())
