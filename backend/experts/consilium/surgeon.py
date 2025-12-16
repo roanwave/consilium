@@ -104,15 +104,27 @@ Respond with a JSON object:
     ],
     "delta_requests": [
         {
-            "field": "casualty_profile.wound_types",
+            "field": "casualty_profile",
             "operation": "set",
-            "value": ["List of expected wound types"],
-            "rationale": "Based on weapons and tactics involved"
+            "value": {
+                "winner_casualties_percent": 15,
+                "loser_casualties_percent": 45,
+                "total_casualties": 2500,
+                "killed": 800,
+                "wounded": 1700,
+                "casualty_distribution": "Description of how casualties distributed across units",
+                "notable_deaths": ["Notable casualty 1", "Notable casualty 2"],
+                "medical_notes": "Detailed notes on wound types, treatment limitations, and post-battle mortality"
+            },
+            "rationale": "Based on weapons, tactics, and era medical capabilities"
         }
     ],
     "narrative_fragment": "Optional prose about the human cost for the final output"
 }
 ```
+
+IMPORTANT: You MUST include winner_casualties_percent and loser_casualties_percent as numbers (not strings).
+Typical ranges: victor 5-20%, defeated force 20-60% depending on whether they rout or surrender.
 
 Your delta_requests must ONLY target 'casualty_profile' fields.
 """
@@ -146,9 +158,14 @@ class Surgeon(Expert):
         return Jurisdiction(
             owns=[
                 "casualty_profile",
-                "casualty_profile.wound_types",
+                "casualty_profile.winner_casualties_percent",
+                "casualty_profile.loser_casualties_percent",
+                "casualty_profile.total_casualties",
+                "casualty_profile.killed",
+                "casualty_profile.wounded",
+                "casualty_profile.casualty_distribution",
+                "casualty_profile.notable_deaths",
                 "casualty_profile.medical_notes",
-                "casualty_profile.killed_wounded_ratio",
             ],
             forbidden=[
                 "version",
