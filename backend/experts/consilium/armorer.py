@@ -10,7 +10,7 @@ from backend.lib.models import (
     ExpertQuestion,
     ScenarioSheet,
 )
-from backend.lib.utils import enum_value
+from backend.lib.utils import enum_value, safe_attr, safe_int
 
 
 ARMORER_SYSTEM_PROMPT = """You are THE ARMORER, Master of the King's Forges.
@@ -184,10 +184,11 @@ class Armorer(Expert):
         """
         # Check for equipment anachronisms
         if sheet.era and sheet.forces:
-            era = sheet.era.value
+            era = enum_value(sheet.era)
             for side_id, force in sheet.forces.items():
-                equipment = force.equipment or ""
+                equipment = safe_attr(force, 'equipment', '') or ""
                 equipment_lower = equipment.lower()
+                side_name = safe_attr(force, 'side_name', side_id)
 
                 # Check for obvious anachronisms
                 if era in ["ancient", "early_medieval"]:
@@ -198,7 +199,7 @@ class Armorer(Expert):
                         return ExpertQuestion(
                             expert=self.config.codename,
                             question=(
-                                f"The equipment described for {force.side_name} seems too advanced "
+                                f"The equipment described for {side_name} seems too advanced "
                                 f"for the {era} era. Can you clarify what armor and weapons they "
                                 "actually have?"
                             ),
@@ -217,7 +218,7 @@ class Armorer(Expert):
                         return ExpertQuestion(
                             expert=self.config.codename,
                             question=(
-                                f"Firearms are mentioned for {force.side_name}, but the era is "
+                                f"Firearms are mentioned for {side_name}, but the era is "
                                 f"{era}. Are we using firearms, or should I assume era-appropriate "
                                 "missile weapons?"
                             ),
@@ -231,11 +232,14 @@ class Armorer(Expert):
         # Check for completely unspecified equipment on large forces
         if sheet.forces:
             for side_id, force in sheet.forces.items():
-                if force.total_strength > 5000 and not force.equipment:
+                strength = safe_int(safe_attr(force, 'total_strength', 0))
+                equipment = safe_attr(force, 'equipment', '')
+                side_name = safe_attr(force, 'side_name', side_id)
+                if strength > 5000 and not equipment:
                     return ExpertQuestion(
                         expert=self.config.codename,
                         question=(
-                            f"What arms and armor does {force.side_name} carry? "
+                            f"What arms and armor does {side_name} carry? "
                             "Professional soldiers with quality gear? Levies with whatever "
                             "they brought?"
                         ),
@@ -257,7 +261,7 @@ class Armorer(Expert):
         """Build the user prompt with scenario context."""
         prompt_parts = [
             "# Current Scenario\n",
-            f"**Era:** {sheet.era.value if sheet.era else 'Unspecified'}",
+            f"**Era:** {enum_value(sheet.era, 'Unspecified')}",
             f"**Theater:** {sheet.theater or 'Unspecified'}",
         ]
 
@@ -265,23 +269,30 @@ class Armorer(Expert):
         if sheet.forces:
             prompt_parts.append("\n**Forces:**")
             for side_id, force in sheet.forces.items():
-                prompt_parts.append(f"\n*{force.side_name}:*")
-                prompt_parts.append(f"  Strength: {force.total_strength:,}")
-                prompt_parts.append(f"  Equipment: {force.equipment or 'Unspecified'}")
-                prompt_parts.append(f"  Armor Quality: {force.armor_quality or 'Unspecified'}")
+                side_name = safe_attr(force, 'side_name', side_id)
+                strength = safe_int(safe_attr(force, 'total_strength', 0))
+                equipment = safe_attr(force, 'equipment', 'Unspecified')
+                armor_quality = safe_attr(force, 'armor_quality', 'Unspecified')
+                prompt_parts.append(f"\n*{side_name}:*")
+                prompt_parts.append(f"  Strength: {strength:,}")
+                prompt_parts.append(f"  Equipment: {equipment or 'Unspecified'}")
+                prompt_parts.append(f"  Armor Quality: {armor_quality or 'Unspecified'}")
 
                 # Show composition for equipment inference
-                if force.composition:
+                composition = safe_attr(force, 'composition', []) or []
+                if composition:
                     prompt_parts.append("  Composition:")
-                    for unit in force.composition[:5]:
-                        prompt_parts.append(f"    - {unit.count:,} {unit.unit_type}")
+                    for unit in composition[:5]:
+                        unit_count = safe_int(safe_attr(unit, 'count', 0))
+                        unit_type = safe_attr(unit, 'unit_type', '')
+                        prompt_parts.append(f"    - {unit_count:,} {unit_type}")
 
         # Add terrain (affects equipment utility)
         if sheet.terrain_weather:
             tw = sheet.terrain_weather
-            prompt_parts.append(f"\n**Terrain:** {tw.terrain_type.value}")
-            prompt_parts.append(f"**Weather:** {tw.weather.value}")
-            prompt_parts.append(f"**Ground:** {tw.ground_conditions}")
+            prompt_parts.append(f"\n**Terrain:** {enum_value(safe_attr(tw, 'terrain_type', ''))}")
+            prompt_parts.append(f"**Weather:** {enum_value(safe_attr(tw, 'weather', ''))}")
+            prompt_parts.append(f"**Ground:** {safe_attr(tw, 'ground_conditions', 'Unspecified')}")
 
         # Add prior contributions
         if prior_contributions:

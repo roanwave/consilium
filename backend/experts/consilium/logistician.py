@@ -10,7 +10,7 @@ from backend.lib.models import (
     ExpertQuestion,
     ScenarioSheet,
 )
-from backend.lib.utils import enum_value
+from backend.lib.utils import enum_value, safe_attr, safe_int
 
 
 LOGISTICIAN_SYSTEM_PROMPT = """You are THE LOGISTICIAN, Quartermaster General.
@@ -176,7 +176,7 @@ class Logistician(Expert):
         Ask a question only if there's a critical supply ambiguity.
         """
         # Check for large armies without supply discussion
-        total_troops = sum(f.total_strength for f in sheet.forces.values()) if sheet.forces else 0
+        total_troops = sum(safe_int(safe_attr(f, 'total_strength', 0)) for f in sheet.forces.values()) if sheet.forces else 0
 
         if total_troops > 30000:
             has_supply_constraint = any(
@@ -208,7 +208,7 @@ class Logistician(Expert):
         """Build the user prompt with scenario context."""
         prompt_parts = [
             "# Current Scenario\n",
-            f"**Era:** {sheet.era.value if sheet.era else 'Unspecified'}",
+            f"**Era:** {enum_value(sheet.era, 'Unspecified')}",
             f"**Theater:** {sheet.theater or 'Unspecified'}",
         ]
 
@@ -217,14 +217,18 @@ class Logistician(Expert):
             prompt_parts.append("\n**Forces:**")
             total = 0
             for side_id, force in sheet.forces.items():
-                total += force.total_strength
-                prompt_parts.append(f"\n*{force.side_name}:*")
-                prompt_parts.append(f"  Strength: {force.total_strength:,}")
-                prompt_parts.append(f"  Supply State: {force.supply_state or 'Unspecified'}")
+                strength = safe_int(safe_attr(force, 'total_strength', 0))
+                total += strength
+                side_name = safe_attr(force, 'side_name', side_id)
+                supply_state = safe_attr(force, 'supply_state', 'Unspecified')
+                prompt_parts.append(f"\n*{side_name}:*")
+                prompt_parts.append(f"  Strength: {strength:,}")
+                prompt_parts.append(f"  Supply State: {supply_state or 'Unspecified'}")
                 # Count cavalry/horses for fodder calculation
+                composition = safe_attr(force, 'composition', []) or []
                 cavalry_count = sum(
-                    u.count for u in force.composition
-                    if "cavalry" in u.unit_type.lower() or "horse" in u.unit_type.lower()
+                    safe_int(safe_attr(u, 'count', 0)) for u in composition
+                    if "cavalry" in safe_attr(u, 'unit_type', '').lower() or "horse" in safe_attr(u, 'unit_type', '').lower()
                 )
                 if cavalry_count:
                     prompt_parts.append(f"  Mounted troops: ~{cavalry_count:,}")
@@ -236,8 +240,8 @@ class Logistician(Expert):
         # Add terrain (affects foraging)
         if sheet.terrain_weather:
             tw = sheet.terrain_weather
-            prompt_parts.append(f"\n**Terrain:** {tw.terrain_type.value}")
-            prompt_parts.append(f"**Season:** {tw.season}")
+            prompt_parts.append(f"\n**Terrain:** {enum_value(safe_attr(tw, 'terrain_type', ''))}")
+            prompt_parts.append(f"**Season:** {safe_attr(tw, 'season', 'Unspecified')}")
 
         # Add existing constraints
         if sheet.constraints:

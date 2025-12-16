@@ -3,6 +3,49 @@
 from typing import Any
 
 
+def safe_int(value: Any, default: int = 0) -> int:
+    """
+    Safely convert a value to int for formatting.
+
+    Handles values that might be:
+    - Integers or floats
+    - Strings with commas like "3,200"
+    - Strings without commas like "3200"
+    - None or invalid values
+
+    Args:
+        value: The value to convert
+        default: Default int if conversion fails
+
+    Returns:
+        Integer value safe for format specifiers like :,
+
+    Examples:
+        >>> safe_int(3200)
+        3200
+        >>> safe_int("3,200")
+        3200
+        >>> safe_int(None)
+        0
+        >>> f"{safe_int(value):,}"  # Safe usage
+    """
+    if value is None:
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            cleaned = value.replace(",", "").replace(" ", "").strip()
+            if not cleaned:
+                return default
+            return int(float(cleaned))
+        except (ValueError, TypeError):
+            return default
+    return default
+
+
 def format_number(value: Any, default: str = "0") -> str:
     """
     Safely format a number with comma separators.
@@ -72,6 +115,29 @@ def enum_value(obj: Any, default: str = "") -> str:
     if hasattr(obj, "value"):
         return str(obj.value)
     return str(obj)
+
+
+def safe_attr(obj: Any, attr: str, default: Any = None) -> Any:
+    """
+    Safely get an attribute from an object that might be a dict or model.
+
+    Args:
+        obj: The object (could be dict, Pydantic model, or None)
+        attr: The attribute name to get
+        default: Default value if not found
+
+    Returns:
+        The attribute value or default
+
+    Examples:
+        >>> safe_attr(force, 'total_strength', 0)
+        >>> safe_attr(commander, 'name', 'Unknown')
+    """
+    if obj is None:
+        return default
+    if isinstance(obj, dict):
+        return obj.get(attr, default)
+    return getattr(obj, attr, default)
 
 
 def safe_get(obj: Any, *keys: str, default: Any = None) -> Any:

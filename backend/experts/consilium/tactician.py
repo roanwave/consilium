@@ -10,7 +10,7 @@ from backend.lib.models import (
     ExpertQuestion,
     ScenarioSheet,
 )
-from backend.lib.utils import enum_value
+from backend.lib.utils import enum_value, safe_attr, safe_int
 
 
 TACTICIAN_SYSTEM_PROMPT = """You are THE TACTICIAN, Veteran Commander of the Line.
@@ -175,7 +175,7 @@ class Tactician(Expert):
         """
         # Check for extreme force ratio without explanation
         if sheet.forces and len(sheet.forces) >= 2:
-            strengths = [f.total_strength for f in sheet.forces.values()]
+            strengths = [safe_int(safe_attr(f, 'total_strength', 0), 1) for f in sheet.forces.values()]
             if len(strengths) >= 2:
                 ratio = max(strengths) / max(min(strengths), 1)
                 if ratio > 3:
@@ -195,7 +195,7 @@ class Tactician(Expert):
 
         # Check if terrain is critical but unclear
         if sheet.terrain_weather:
-            terrain = sheet.terrain_weather.terrain_type.value
+            terrain = enum_value(safe_attr(sheet.terrain_weather, 'terrain_type', ''))
             if terrain in ["river_crossing", "mountains", "marsh"] and not sheet.decision_points:
                 return ExpertQuestion(
                     expert=self.config.codename,
@@ -221,7 +221,7 @@ class Tactician(Expert):
         """Build the user prompt with scenario context."""
         prompt_parts = [
             "# Current Scenario\n",
-            f"**Era:** {sheet.era.value if sheet.era else 'Unspecified'}",
+            f"**Era:** {enum_value(sheet.era, 'Unspecified')}",
             f"**Theater:** {sheet.theater or 'Unspecified'}",
             f"**Stakes:** {sheet.stakes or 'Unspecified'}",
         ]
@@ -229,37 +229,50 @@ class Tactician(Expert):
         # Add terrain (critical for tactics)
         if sheet.terrain_weather:
             tw = sheet.terrain_weather
-            prompt_parts.append(f"\n**Terrain:** {tw.terrain_type.value}")
-            prompt_parts.append(f"**Defining Feature:** {tw.defining_feature}")
-            if tw.weather:
-                prompt_parts.append(f"**Weather:** {tw.weather.value}")
-            if tw.ground_conditions:
-                prompt_parts.append(f"**Ground:** {tw.ground_conditions}")
+            prompt_parts.append(f"\n**Terrain:** {enum_value(safe_attr(tw, 'terrain_type', ''))}")
+            prompt_parts.append(f"**Defining Feature:** {safe_attr(tw, 'defining_feature', '')}")
+            weather = safe_attr(tw, 'weather')
+            if weather:
+                prompt_parts.append(f"**Weather:** {enum_value(weather)}")
+            ground = safe_attr(tw, 'ground_conditions')
+            if ground:
+                prompt_parts.append(f"**Ground:** {ground}")
 
         # Add forces (essential for tactical analysis)
         if sheet.forces:
             prompt_parts.append("\n**Forces:**")
             for side_id, force in sheet.forces.items():
-                prompt_parts.append(f"\n*{force.side_name}* ({force.total_strength:,} total):")
-                if force.commander:
-                    prompt_parts.append(
-                        f"  Commander: {force.commander.name} ({force.commander.competence.value})"
-                    )
-                if force.composition:
-                    for unit in force.composition[:5]:
-                        prompt_parts.append(f"  - {unit.count:,} {unit.unit_type}")
+                side_name = safe_attr(force, 'side_name', side_id)
+                total_strength = safe_int(safe_attr(force, 'total_strength', 0))
+                prompt_parts.append(f"\n*{side_name}* ({total_strength:,} total):")
+                commander = safe_attr(force, 'commander')
+                if commander:
+                    cmd_name = safe_attr(commander, 'name', 'Unknown')
+                    cmd_comp = enum_value(safe_attr(commander, 'competence', ''))
+                    prompt_parts.append(f"  Commander: {cmd_name} ({cmd_comp})")
+                composition = safe_attr(force, 'composition', [])
+                if composition:
+                    for unit in composition[:5]:
+                        unit_count = safe_int(safe_attr(unit, 'count', 0))
+                        unit_type = safe_attr(unit, 'unit_type', '')
+                        prompt_parts.append(f"  - {unit_count:,} {unit_type}")
 
         # Add existing decision points
         if sheet.decision_points:
             prompt_parts.append("\n**Existing Decision Points:**")
             for dp in sheet.decision_points:
-                prompt_parts.append(f"- [{dp.timestamp}] {dp.commander}: {dp.situation[:80]}...")
+                ts = safe_attr(dp, 'timestamp', '')
+                cmd = safe_attr(dp, 'commander', '')
+                sit = safe_attr(dp, 'situation', '')[:80] if safe_attr(dp, 'situation') else ''
+                prompt_parts.append(f"- [{ts}] {cmd}: {sit}...")
 
         # Add existing timeline
         if sheet.timeline:
             prompt_parts.append("\n**Existing Timeline:**")
             for event in sheet.timeline[:5]:
-                prompt_parts.append(f"- [{event.timestamp}] {event.event[:80]}...")
+                ts = safe_attr(event, 'timestamp', '')
+                evt = safe_attr(event, 'event', '')[:80] if safe_attr(event, 'event') else ''
+                prompt_parts.append(f"- [{ts}] {evt}...")
 
         # Add prior contributions
         if prior_contributions:

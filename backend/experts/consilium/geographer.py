@@ -10,7 +10,7 @@ from backend.lib.models import (
     ExpertQuestion,
     ScenarioSheet,
 )
-from backend.lib.utils import enum_value
+from backend.lib.utils import enum_value, safe_attr, safe_int
 
 
 GEOGRAPHER_SYSTEM_PROMPT = """You are THE GEOGRAPHER, Surveyor of the King's Domains.
@@ -172,11 +172,13 @@ class Geographer(Expert):
             tw = sheet.terrain_weather
             # Check if defining feature is too generic
             generic_features = ["flat", "open", "normal", "typical", "standard"]
-            if tw.defining_feature and tw.defining_feature.lower() in generic_features:
+            defining_feature = safe_attr(tw, 'defining_feature', '')
+            terrain_type_val = enum_value(safe_attr(tw, 'terrain_type', ''))
+            if defining_feature and defining_feature.lower() in generic_features:
                 return ExpertQuestion(
                     expert=self.config.codename,
                     question=(
-                        f"The {tw.terrain_type.value} terrain needs a defining feature. "
+                        f"The {terrain_type_val} terrain needs a defining feature. "
                         "What makes THIS battlefield distinct? A ridge? A stream? "
                         "A treeline? Ancient earthworks?"
                     ),
@@ -188,12 +190,15 @@ class Geographer(Expert):
                 )
 
             # Check for weather-sensitive terrain without weather
-            if tw.terrain_type.value in ["marsh", "river_crossing", "forest"]:
-                if tw.weather.value == "clear" and not tw.ground_conditions:
+            terrain_type_str = enum_value(safe_attr(tw, 'terrain_type', ''))
+            weather_str = enum_value(safe_attr(tw, 'weather', ''))
+            ground_conditions = safe_attr(tw, 'ground_conditions', '')
+            if terrain_type_str in ["marsh", "river_crossing", "forest"]:
+                if weather_str == "clear" and not ground_conditions:
                     return ExpertQuestion(
                         expert=self.config.codename,
                         question=(
-                            f"For {tw.terrain_type.value} terrain, recent weather matters. "
+                            f"For {terrain_type_str} terrain, recent weather matters. "
                             "Has it rained recently? Is the ground firm or soft?"
                         ),
                         context=(
@@ -214,7 +219,7 @@ class Geographer(Expert):
         """Build the user prompt with scenario context."""
         prompt_parts = [
             "# Current Scenario\n",
-            f"**Era:** {sheet.era.value if sheet.era else 'Unspecified'}",
+            f"**Era:** {enum_value(sheet.era, 'Unspecified')}",
             f"**Theater:** {sheet.theater or 'Unspecified'}",
         ]
 
@@ -222,27 +227,32 @@ class Geographer(Expert):
         if sheet.terrain_weather:
             tw = sheet.terrain_weather
             prompt_parts.append("\n**Current Terrain Description:**")
-            prompt_parts.append(f"  Type: {tw.terrain_type.value}")
-            prompt_parts.append(f"  Defining Feature: {tw.defining_feature or 'Unspecified'}")
-            prompt_parts.append(f"  Weather: {tw.weather.value}")
-            prompt_parts.append(f"  Visibility: {tw.visibility}")
-            prompt_parts.append(f"  Ground Conditions: {tw.ground_conditions}")
-            prompt_parts.append(f"  Time of Day: {tw.time_of_day}")
-            prompt_parts.append(f"  Season: {tw.season}")
+            prompt_parts.append(f"  Type: {enum_value(safe_attr(tw, 'terrain_type', ''))}")
+            prompt_parts.append(f"  Defining Feature: {safe_attr(tw, 'defining_feature', 'Unspecified')}")
+            prompt_parts.append(f"  Weather: {enum_value(safe_attr(tw, 'weather', ''))}")
+            prompt_parts.append(f"  Visibility: {safe_attr(tw, 'visibility', 'Unspecified')}")
+            prompt_parts.append(f"  Ground Conditions: {safe_attr(tw, 'ground_conditions', 'Unspecified')}")
+            prompt_parts.append(f"  Time of Day: {safe_attr(tw, 'time_of_day', 'Unspecified')}")
+            prompt_parts.append(f"  Season: {safe_attr(tw, 'season', 'Unspecified')}")
 
-            if tw.features:
+            features = safe_attr(tw, 'features', []) or []
+            if features:
                 prompt_parts.append("\n  Existing Features:")
-                for f in tw.features:
-                    prompt_parts.append(f"    - {f.name}: {f.tactical_impact}")
+                for f in features:
+                    f_name = safe_attr(f, 'name', '')
+                    f_impact = safe_attr(f, 'tactical_impact', '')
+                    prompt_parts.append(f"    - {f_name}: {f_impact}")
 
-            if tw.what_matters:
-                prompt_parts.append(f"\n  What Matters: {', '.join(tw.what_matters)}")
-            if tw.what_doesnt:
-                prompt_parts.append(f"  What Doesn't: {', '.join(tw.what_doesnt)}")
+            what_matters = safe_attr(tw, 'what_matters', []) or []
+            what_doesnt = safe_attr(tw, 'what_doesnt', []) or []
+            if what_matters:
+                prompt_parts.append(f"\n  What Matters: {', '.join(what_matters)}")
+            if what_doesnt:
+                prompt_parts.append(f"  What Doesn't: {', '.join(what_doesnt)}")
 
         # Add forces (for scale/frontage considerations)
         if sheet.forces:
-            total = sum(f.total_strength for f in sheet.forces.values())
+            total = sum(safe_int(safe_attr(f, 'total_strength', 0)) for f in sheet.forces.values())
             prompt_parts.append(f"\n**Total troops to fit on this ground:** {total:,}")
 
         # Add relevant answers

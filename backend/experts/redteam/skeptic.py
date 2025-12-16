@@ -9,7 +9,7 @@ from backend.lib.models import (
     ExpertContribution,
     ScenarioSheet,
 )
-from backend.lib.utils import enum_value, format_number
+from backend.lib.utils import enum_value, format_number, safe_int
 
 
 def _get_attr(obj: Any, attr: str, default: Any = None) -> Any:
@@ -138,7 +138,7 @@ class Skeptic(RedTeamExpert):
             prompt_parts.append("\n## Forces")
             for side_id, force in sheet.forces.items():
                 side_name = _get_attr(force, "side_name", side_id)
-                total_strength = _get_attr(force, "total_strength", 0)
+                total_strength = safe_int(_get_attr(force, "total_strength", 0))
                 prompt_parts.append(f"\n**{side_name}** ({total_strength:,}):")
                 commander = _get_attr(force, "commander", None)
                 if commander:

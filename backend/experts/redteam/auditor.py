@@ -9,7 +9,7 @@ from backend.lib.models import (
     ExpertContribution,
     ScenarioSheet,
 )
-from backend.lib.utils import enum_value, format_number
+from backend.lib.utils import enum_value, format_number, safe_int
 
 
 def _get_attr(obj: Any, attr: str, default: Any = None) -> Any:
@@ -142,16 +142,22 @@ class Auditor(RedTeamExpert):
             prompt_parts.append("\n## Forces (CHECK THESE NUMBERS)")
             total_engaged = 0
             for side_id, force in sheet.forces.items():
-                total_engaged += force.total_strength
-                prompt_parts.append(f"\n**{force.side_name}:**")
-                prompt_parts.append(f"- Total Strength: {force.total_strength:,}")
-                prompt_parts.append(f"- Equipment: {force.equipment or 'Unspecified'}")
+                strength = safe_int(_get_attr(force, 'total_strength', 0))
+                total_engaged += strength
+                side_name = _get_attr(force, 'side_name', side_id)
+                equipment = _get_attr(force, 'equipment', 'Unspecified')
+                prompt_parts.append(f"\n**{side_name}:**")
+                prompt_parts.append(f"- Total Strength: {strength:,}")
+                prompt_parts.append(f"- Equipment: {equipment or 'Unspecified'}")
 
-                if force.composition:
-                    comp_total = sum(u.count for u in force.composition)
+                composition = _get_attr(force, 'composition', []) or []
+                if composition:
+                    comp_total = sum(safe_int(_get_attr(u, 'count', 0)) for u in composition)
                     prompt_parts.append(f"- Composition total: {comp_total:,}")
-                    for unit in force.composition:
-                        prompt_parts.append(f"  - {unit.count:,} {unit.unit_type}")
+                    for unit in composition:
+                        unit_count = safe_int(_get_attr(unit, 'count', 0))
+                        unit_type = _get_attr(unit, 'unit_type', '')
+                        prompt_parts.append(f"  - {unit_count:,} {unit_type}")
 
             prompt_parts.append(f"\n**Total engaged both sides:** {total_engaged:,}")
 
@@ -159,10 +165,10 @@ class Auditor(RedTeamExpert):
         if sheet.terrain_weather:
             tw = sheet.terrain_weather
             prompt_parts.append("\n## Terrain and Weather")
-            prompt_parts.append(f"- Type: {enum_value(tw.terrain_type)}")
-            prompt_parts.append(f"- Defining Feature: {tw.defining_feature}")
-            prompt_parts.append(f"- Weather: {enum_value(tw.weather)}")
-            prompt_parts.append(f"- Season: {tw.season}")
+            prompt_parts.append(f"- Type: {enum_value(_get_attr(tw, 'terrain_type', ''))}")
+            prompt_parts.append(f"- Defining Feature: {_get_attr(tw, 'defining_feature', 'Unspecified')}")
+            prompt_parts.append(f"- Weather: {enum_value(_get_attr(tw, 'weather', ''))}")
+            prompt_parts.append(f"- Season: {_get_attr(tw, 'season', 'Unspecified')}")
 
         # Add timeline (check for impossibilities)
         if sheet.timeline:

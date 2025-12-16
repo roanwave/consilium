@@ -10,7 +10,7 @@ from backend.lib.models import (
     ExpertQuestion,
     ScenarioSheet,
 )
-from backend.lib.utils import enum_value
+from backend.lib.utils import enum_value, safe_attr, safe_int
 
 
 HERALD_SYSTEM_PROMPT = """You are THE HERALD, Master of Arms and Honor.
@@ -184,12 +184,15 @@ class Herald(Expert):
         # Check for forces without composition
         if sheet.forces:
             for side_id, force in sheet.forces.items():
-                if force.total_strength > 3000 and not force.composition:
+                strength = safe_int(safe_attr(force, 'total_strength', 0))
+                composition = safe_attr(force, 'composition', None)
+                side_name = safe_attr(force, 'side_name', side_id)
+                if strength > 3000 and not composition:
                     return ExpertQuestion(
                         expert=self.config.codename,
                         question=(
-                            f"What types of troops make up {force.side_name}'s "
-                            f"{force.total_strength:,} soldiers? Heavy infantry? Cavalry? "
+                            f"What types of troops make up {side_name}'s "
+                            f"{strength:,} soldiers? Heavy infantry? Cavalry? "
                             "Archers? Levied peasants? The composition determines what "
                             "they can and cannot do."
                         ),
@@ -202,24 +205,27 @@ class Herald(Expert):
 
             # Check for mixed professional/levy forces without morale clarity
             for side_id, force in sheet.forces.items():
-                if force.composition:
+                composition = safe_attr(force, 'composition', []) or []
+                if composition:
                     has_elite = any(
-                        "guard" in u.unit_type.lower()
-                        or "elite" in u.unit_type.lower()
-                        or "knight" in u.unit_type.lower()
-                        for u in force.composition
+                        "guard" in safe_attr(u, 'unit_type', '').lower()
+                        or "elite" in safe_attr(u, 'unit_type', '').lower()
+                        or "knight" in safe_attr(u, 'unit_type', '').lower()
+                        for u in composition
                     )
                     has_levy = any(
-                        "levy" in u.unit_type.lower()
-                        or "peasant" in u.unit_type.lower()
-                        or "militia" in u.unit_type.lower()
-                        for u in force.composition
+                        "levy" in safe_attr(u, 'unit_type', '').lower()
+                        or "peasant" in safe_attr(u, 'unit_type', '').lower()
+                        or "militia" in safe_attr(u, 'unit_type', '').lower()
+                        for u in composition
                     )
-                    if has_elite and has_levy and not force.morale_factors:
+                    morale_factors = safe_attr(force, 'morale_factors', None)
+                    side_name = safe_attr(force, 'side_name', side_id)
+                    if has_elite and has_levy and not morale_factors:
                         return ExpertQuestion(
                             expert=self.config.codename,
                             question=(
-                                f"{force.side_name} has both elite and levy troops. "
+                                f"{side_name} has both elite and levy troops. "
                                 "How cohesive is this force? Do the elites fight alongside "
                                 "the levies or consider them expendable?"
                             ),
@@ -241,7 +247,7 @@ class Herald(Expert):
         """Build the user prompt with scenario context."""
         prompt_parts = [
             "# Current Scenario\n",
-            f"**Era:** {sheet.era.value if sheet.era else 'Unspecified'}",
+            f"**Era:** {enum_value(sheet.era, 'Unspecified')}",
             f"**Theater:** {sheet.theater or 'Unspecified'}",
             f"**Stakes:** {sheet.stakes or 'Unspecified'}",
         ]
@@ -250,27 +256,36 @@ class Herald(Expert):
         if sheet.forces:
             prompt_parts.append("\n**Forces:**")
             for side_id, force in sheet.forces.items():
-                prompt_parts.append(f"\n*{force.side_name}* ({force.total_strength:,}):")
-                if force.commander:
-                    prompt_parts.append(f"  Commander: {force.commander.name}")
+                side_name = safe_attr(force, 'side_name', side_id)
+                strength = safe_int(safe_attr(force, 'total_strength', 0))
+                prompt_parts.append(f"\n*{side_name}* ({strength:,}):")
+                commander = safe_attr(force, 'commander', None)
+                if commander:
+                    cmd_name = safe_attr(commander, 'name', 'Unknown')
+                    prompt_parts.append(f"  Commander: {cmd_name}")
 
-                if force.composition:
+                composition = safe_attr(force, 'composition', []) or []
+                if composition:
                     prompt_parts.append("  Composition:")
-                    for unit in force.composition:
-                        quality = f" ({unit.quality})" if unit.quality else ""
-                        prompt_parts.append(f"    - {unit.count:,} {unit.unit_type}{quality}")
+                    for unit in composition:
+                        unit_count = safe_int(safe_attr(unit, 'count', 0))
+                        unit_type = safe_attr(unit, 'unit_type', '')
+                        quality = safe_attr(unit, 'quality', '')
+                        quality_str = f" ({quality})" if quality else ""
+                        prompt_parts.append(f"    - {unit_count:,} {unit_type}{quality_str}")
                 else:
                     prompt_parts.append("  Composition: Unspecified")
 
-                if force.morale_factors:
-                    prompt_parts.append(f"  Morale Factors: {', '.join(force.morale_factors)}")
+                morale_factors = safe_attr(force, 'morale_factors', []) or []
+                if morale_factors:
+                    prompt_parts.append(f"  Morale Factors: {', '.join(morale_factors)}")
                 else:
                     prompt_parts.append("  Morale Factors: Unspecified")
 
         # Add terrain (affects morale in some cases)
         if sheet.terrain_weather:
             tw = sheet.terrain_weather
-            prompt_parts.append(f"\n**Terrain:** {tw.terrain_type.value}")
+            prompt_parts.append(f"\n**Terrain:** {enum_value(safe_attr(tw, 'terrain_type', ''))}")
 
         # Add prior contributions
         if prior_contributions:

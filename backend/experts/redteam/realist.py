@@ -9,7 +9,7 @@ from backend.lib.models import (
     ExpertContribution,
     ScenarioSheet,
 )
-from backend.lib.utils import enum_value
+from backend.lib.utils import enum_value, safe_int
 
 
 def _get_attr(obj: Any, attr: str, default: Any = None) -> Any:
@@ -148,20 +148,20 @@ class Realist(RedTeamExpert):
         # Add forces (check physical demands)
         if sheet.forces:
             prompt_parts.append("\n## Forces (CHECK PHYSICAL DEMANDS)")
-            total = sum(_get_attr(f, "total_strength", 0) for f in sheet.forces.values())
+            total = sum(safe_int(_get_attr(f, "total_strength", 0)) for f in sheet.forces.values())
             prompt_parts.append(f"**Total troops to move/feed/coordinate:** {total:,}")
 
             for side_id, force in sheet.forces.items():
                 side_name = _get_attr(force, "side_name", side_id)
-                total_strength = _get_attr(force, "total_strength", 0)
+                total_strength = safe_int(_get_attr(force, "total_strength", 0))
                 supply_state = _get_attr(force, "supply_state", "Unspecified")
                 prompt_parts.append(f"\n**{side_name}:**")
                 prompt_parts.append(f"- Strength: {total_strength:,}")
                 prompt_parts.append(f"- Supply State: {supply_state or 'Unspecified'}")
-                composition = _get_attr(force, "composition", [])
+                composition = _get_attr(force, "composition", []) or []
                 if composition:
                     for unit in composition[:4]:
-                        unit_count = _get_attr(unit, "count", 0)
+                        unit_count = safe_int(_get_attr(unit, "count", 0))
                         unit_type = _get_attr(unit, "unit_type", "")
                         prompt_parts.append(f"- {unit_count:,} {unit_type}")
 

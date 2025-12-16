@@ -10,7 +10,7 @@ from backend.lib.models import (
     ExpertQuestion,
     ScenarioSheet,
 )
-from backend.lib.utils import enum_value
+from backend.lib.utils import enum_value, safe_attr, safe_int
 
 
 COMMANDER_SYSTEM_PROMPT = """You are THE COMMANDER, Marshal of the Field.
@@ -187,11 +187,14 @@ class Commander(Expert):
         # Check for unnamed commanders on large forces
         if sheet.forces:
             for side_id, force in sheet.forces.items():
-                if force.total_strength > 5000 and not force.commander:
+                strength = safe_int(safe_attr(force, 'total_strength', 0))
+                commander = safe_attr(force, 'commander', None)
+                side_name = safe_attr(force, 'side_name', side_id)
+                if strength > 5000 and not commander:
                     return ExpertQuestion(
                         expert=self.config.codename,
                         question=(
-                            f"Who commands {force.side_name}? A {force.total_strength:,}-strong "
+                            f"Who commands {side_name}? A {strength:,}-strong "
                             "force needs named leadership to assess command capability."
                         ),
                         context=(
@@ -206,8 +209,9 @@ class Commander(Expert):
             if sheet.decision_points:
                 commanders_mentioned = set()
                 for dp in sheet.decision_points:
-                    if dp.commander:
-                        commanders_mentioned.add(dp.commander.lower())
+                    dp_cmd = safe_attr(dp, 'commander', '')
+                    if dp_cmd:
+                        commanders_mentioned.add(dp_cmd.lower())
 
                 # If multiple decision points but unclear who's in overall command
                 if len(commanders_mentioned) >= 3:
@@ -235,7 +239,7 @@ class Commander(Expert):
         """Build the user prompt with scenario context."""
         prompt_parts = [
             "# Current Scenario\n",
-            f"**Era:** {sheet.era.value if sheet.era else 'Unspecified'}",
+            f"**Era:** {enum_value(sheet.era, 'Unspecified')}",
             f"**Theater:** {sheet.theater or 'Unspecified'}",
             f"**Stakes:** {sheet.stakes or 'Unspecified'}",
         ]
@@ -244,13 +248,19 @@ class Commander(Expert):
         if sheet.forces:
             prompt_parts.append("\n**Forces and Command:**")
             for side_id, force in sheet.forces.items():
-                prompt_parts.append(f"\n*{force.side_name}* ({force.total_strength:,}):")
-                if force.commander:
-                    prompt_parts.append(f"  Commander: {force.commander.name}")
-                    prompt_parts.append(f"  Competence: {force.commander.competence.value}")
-                    if force.commander.notable_traits:
+                side_name = safe_attr(force, 'side_name', side_id)
+                strength = safe_int(safe_attr(force, 'total_strength', 0))
+                prompt_parts.append(f"\n*{side_name}* ({strength:,}):")
+                commander = safe_attr(force, 'commander', None)
+                if commander:
+                    cmd_name = safe_attr(commander, 'name', 'Unknown')
+                    cmd_comp = enum_value(safe_attr(commander, 'competence', ''))
+                    prompt_parts.append(f"  Commander: {cmd_name}")
+                    prompt_parts.append(f"  Competence: {cmd_comp}")
+                    notable_traits = safe_attr(commander, 'notable_traits', []) or []
+                    if notable_traits:
                         prompt_parts.append(
-                            f"  Traits: {', '.join(force.commander.notable_traits)}"
+                            f"  Traits: {', '.join(notable_traits)}"
                         )
                 else:
                     prompt_parts.append("  Commander: Unspecified")
@@ -258,15 +268,18 @@ class Commander(Expert):
         # Add terrain (affects command visibility)
         if sheet.terrain_weather:
             tw = sheet.terrain_weather
-            prompt_parts.append(f"\n**Terrain:** {tw.terrain_type.value}")
-            prompt_parts.append(f"**Visibility:** {tw.visibility}")
+            prompt_parts.append(f"\n**Terrain:** {enum_value(safe_attr(tw, 'terrain_type', ''))}")
+            prompt_parts.append(f"**Visibility:** {safe_attr(tw, 'visibility', 'Unspecified')}")
 
         # Add existing decision points
         if sheet.decision_points:
             prompt_parts.append("\n**Existing Decision Points:**")
             for dp in sheet.decision_points[:3]:
+                dp_ts = safe_attr(dp, 'timestamp', '')
+                dp_cmd = safe_attr(dp, 'commander', '')
+                dp_sit = safe_attr(dp, 'situation', '')[:60] if safe_attr(dp, 'situation') else ''
                 prompt_parts.append(
-                    f"- [{dp.timestamp}] {dp.commander}: {dp.situation[:60]}..."
+                    f"- [{dp_ts}] {dp_cmd}: {dp_sit}..."
                 )
 
         # Add open risks

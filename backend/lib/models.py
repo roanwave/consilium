@@ -403,8 +403,10 @@ class RedTeamObjection(BaseModel):
 class FilteredObjection(BaseModel):
     """An objection after moderator filtering."""
 
-    original: RedTeamObjection = Field(description="Original objection")
-    objection_type: ObjectionType = Field(description="Classification")
+    model_config = ConfigDict(extra="allow")
+
+    original: Union[dict, RedTeamObjection] = Field(description="Original objection")
+    objection_type: Union[ObjectionType, str] = Field(default=ObjectionType.REFINABLE, description="Classification")
     moderator_notes: str = Field(default="", description="Moderator's reasoning")
     action_required: str = Field(default="", description="What needs to happen")
 

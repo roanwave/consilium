@@ -10,7 +10,7 @@ from backend.lib.models import (
     ExpertQuestion,
     ScenarioSheet,
 )
-from backend.lib.utils import enum_value
+from backend.lib.utils import enum_value, safe_attr, safe_int
 
 
 STRATEGIST_SYSTEM_PROMPT = """You are THE STRATEGIST, Royal Counselor to the War Council.
@@ -212,7 +212,7 @@ class Strategist(Expert):
         """Build the user prompt with scenario context."""
         prompt_parts = [
             "# Current Scenario\n",
-            f"**Era:** {sheet.era.value if sheet.era else 'Unspecified'}",
+            f"**Era:** {enum_value(sheet.era, 'Unspecified')}",
             f"**Theater:** {sheet.theater or 'Unspecified'}",
             f"**Current Stakes:** {sheet.stakes or 'Not yet defined'}",
         ]
@@ -220,21 +220,22 @@ class Strategist(Expert):
         # Add existing constraints
         if sheet.constraints:
             prompt_parts.append("\n**Existing Constraints:**")
-            for c in sheet.constraints:
+            constraints = sheet.constraints if isinstance(sheet.constraints, list) else [sheet.constraints]
+            for c in constraints:
                 prompt_parts.append(f"- {c}")
 
         # Add forces overview (for political context)
         if sheet.forces:
             prompt_parts.append("\n**Forces Engaged:**")
             for side_id, force in sheet.forces.items():
-                prompt_parts.append(
-                    f"- {force.side_name}: {force.total_strength:,} troops"
-                )
-                if force.commander:
-                    prompt_parts.append(
-                        f"  Commander: {force.commander.name} "
-                        f"({force.commander.competence.value})"
-                    )
+                side_name = safe_attr(force, 'side_name', side_id)
+                strength = safe_int(safe_attr(force, 'total_strength', 0))
+                prompt_parts.append(f"- {side_name}: {strength:,} troops")
+                commander = safe_attr(force, 'commander')
+                if commander:
+                    cmd_name = safe_attr(commander, 'name', 'Unknown')
+                    cmd_comp = enum_value(safe_attr(commander, 'competence', ''))
+                    prompt_parts.append(f"  Commander: {cmd_name} ({cmd_comp})")
 
         # Add any relevant answers
         if answers:

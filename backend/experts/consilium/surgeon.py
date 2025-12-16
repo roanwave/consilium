@@ -10,7 +10,7 @@ from backend.lib.models import (
     ExpertQuestion,
     ScenarioSheet,
 )
-from backend.lib.utils import enum_value
+from backend.lib.utils import enum_value, safe_attr, safe_int
 
 
 SURGEON_SYSTEM_PROMPT = """You are THE SURGEON, Chief Physician to the Royal Army.
@@ -181,14 +181,15 @@ class Surgeon(Expert):
         if sheet.casualty_profile:
             cp = sheet.casualty_profile
             if sheet.forces:
-                total_engaged = sum(f.total_strength for f in sheet.forces.values())
+                total_engaged = sum(safe_int(safe_attr(f, 'total_strength', 0)) for f in sheet.forces.values())
 
                 # Check for impossibly high casualties
-                if cp.total_casualties and cp.total_casualties > total_engaged * 0.8:
+                total_cas = safe_int(safe_attr(cp, 'total_casualties', 0))
+                if total_cas and total_cas > total_engaged * 0.8:
                     return ExpertQuestion(
                         expert=self.config.codename,
                         question=(
-                            f"The casualty estimate ({cp.total_casualties:,}) exceeds 80% of "
+                            f"The casualty estimate ({total_cas:,}) exceeds 80% of "
                             f"forces engaged ({total_engaged:,}). Is this an annihilation or "
                             "massacre scenario? Even catastrophic defeats rarely approach this."
                         ),
@@ -227,7 +228,7 @@ class Surgeon(Expert):
         """Build the user prompt with scenario context."""
         prompt_parts = [
             "# Current Scenario\n",
-            f"**Era:** {sheet.era.value if sheet.era else 'Unspecified'}",
+            f"**Era:** {enum_value(sheet.era, 'Unspecified')}",
             f"**Theater:** {sheet.theater or 'Unspecified'}",
         ]
 
@@ -236,34 +237,44 @@ class Surgeon(Expert):
             prompt_parts.append("\n**Forces:**")
             total = 0
             for side_id, force in sheet.forces.items():
-                total += force.total_strength
-                prompt_parts.append(f"\n*{force.side_name}:*")
-                prompt_parts.append(f"  Strength: {force.total_strength:,}")
-                prompt_parts.append(f"  Equipment: {force.equipment or 'Unspecified'}")
-                if force.composition:
+                strength = safe_int(safe_attr(force, 'total_strength', 0))
+                total += strength
+                side_name = safe_attr(force, 'side_name', side_id)
+                equipment = safe_attr(force, 'equipment', 'Unspecified')
+                prompt_parts.append(f"\n*{side_name}:*")
+                prompt_parts.append(f"  Strength: {strength:,}")
+                prompt_parts.append(f"  Equipment: {equipment or 'Unspecified'}")
+                composition = safe_attr(force, 'composition', [])
+                if composition:
                     prompt_parts.append("  Composition:")
-                    for unit in force.composition[:4]:
-                        prompt_parts.append(f"    - {unit.count:,} {unit.unit_type}")
+                    for unit in composition[:4]:
+                        unit_count = safe_int(safe_attr(unit, 'count', 0))
+                        unit_type = safe_attr(unit, 'unit_type', '')
+                        prompt_parts.append(f"    - {unit_count:,} {unit_type}")
             prompt_parts.append(f"\n**Total engaged:** {total:,}")
 
         # Add terrain (affects wound treatment)
         if sheet.terrain_weather:
             tw = sheet.terrain_weather
-            prompt_parts.append(f"\n**Terrain:** {tw.terrain_type.value}")
-            prompt_parts.append(f"**Weather:** {tw.weather.value}")
-            if tw.ground_conditions:
-                prompt_parts.append(f"**Ground:** {tw.ground_conditions}")
+            prompt_parts.append(f"\n**Terrain:** {enum_value(safe_attr(tw, 'terrain_type', ''))}")
+            prompt_parts.append(f"**Weather:** {enum_value(safe_attr(tw, 'weather', ''))}")
+            ground = safe_attr(tw, 'ground_conditions')
+            if ground:
+                prompt_parts.append(f"**Ground:** {ground}")
 
         # Add existing casualty profile
         if sheet.casualty_profile:
             cp = sheet.casualty_profile
             prompt_parts.append("\n**Current Casualty Profile:**")
-            if cp.total_casualties:
-                prompt_parts.append(f"  Total Casualties: {cp.total_casualties:,}")
-            if cp.casualty_distribution:
-                prompt_parts.append(f"  Distribution: {cp.casualty_distribution}")
-            if cp.medical_notes:
-                prompt_parts.append(f"  Medical Notes: {cp.medical_notes}")
+            total_cas = safe_int(safe_attr(cp, 'total_casualties', 0))
+            if total_cas:
+                prompt_parts.append(f"  Total Casualties: {total_cas:,}")
+            cas_dist = safe_attr(cp, 'casualty_distribution')
+            if cas_dist:
+                prompt_parts.append(f"  Distribution: {cas_dist}")
+            med_notes = safe_attr(cp, 'medical_notes')
+            if med_notes:
+                prompt_parts.append(f"  Medical Notes: {med_notes}")
 
         # Add prior contributions
         if prior_contributions:

@@ -10,7 +10,7 @@ from backend.lib.models import (
     ExpertQuestion,
     ScenarioSheet,
 )
-from backend.lib.utils import enum_value
+from backend.lib.utils import enum_value, safe_attr, safe_int
 
 
 CHRONICLER_SYSTEM_PROMPT = """You are THE CHRONICLER, Keeper of the Kingdom's Histories.
@@ -196,20 +196,23 @@ class Chronicler(Expert):
         if sheet.forces and sheet.aftermath:
             strengths = list(sheet.forces.values())
             if len(strengths) >= 2:
-                larger = max(strengths, key=lambda f: f.total_strength)
-                smaller = min(strengths, key=lambda f: f.total_strength)
-                ratio = larger.total_strength / max(smaller.total_strength, 1)
+                larger = max(strengths, key=lambda f: safe_int(safe_attr(f, 'total_strength', 0)))
+                smaller = min(strengths, key=lambda f: safe_int(safe_attr(f, 'total_strength', 0)))
+                larger_strength = safe_int(safe_attr(larger, 'total_strength', 0))
+                smaller_strength = safe_int(safe_attr(smaller, 'total_strength', 0))
+                ratio = larger_strength / max(smaller_strength, 1)
 
                 aftermath_lower = sheet.aftermath.lower() if sheet.aftermath else ""
-                smaller_name = smaller.side_name.lower()
-                larger_name = larger.side_name.lower()
+                smaller_name = safe_attr(smaller, 'side_name', '').lower()
+                larger_name = safe_attr(larger, 'side_name', '').lower()
 
                 # Check if smaller force wins decisively against the odds
+                smaller_display_name = safe_attr(smaller, 'side_name', 'Unknown')
                 if ratio > 2.5 and smaller_name in aftermath_lower and "victory" in aftermath_lower:
                     return ExpertQuestion(
                         expert=self.config.codename,
                         question=(
-                            f"The aftermath suggests {smaller.side_name} achieves victory "
+                            f"The aftermath suggests {smaller_display_name} achieves victory "
                             f"against {ratio:.1f}:1 odds. What historical circumstance "
                             "enables this? Terrain advantage? Superior quality? Surprise?"
                         ),
@@ -231,7 +234,7 @@ class Chronicler(Expert):
         """Build the user prompt with scenario context."""
         prompt_parts = [
             "# Current Scenario\n",
-            f"**Era:** {sheet.era.value if sheet.era else 'Unspecified'}",
+            f"**Era:** {enum_value(sheet.era, 'Unspecified')}",
             f"**Theater:** {sheet.theater or 'Unspecified'}",
             f"**Stakes:** {sheet.stakes or 'Unspecified'}",
         ]
@@ -240,21 +243,27 @@ class Chronicler(Expert):
         if sheet.forces:
             prompt_parts.append("\n**Forces:**")
             for side_id, force in sheet.forces.items():
-                prompt_parts.append(f"- {force.side_name}: {force.total_strength:,}")
-                if force.commander:
-                    prompt_parts.append(f"  Led by {force.commander.name}")
+                side_name = safe_attr(force, 'side_name', side_id)
+                strength = safe_int(safe_attr(force, 'total_strength', 0))
+                prompt_parts.append(f"- {side_name}: {strength:,}")
+                commander = safe_attr(force, 'commander', None)
+                if commander:
+                    cmd_name = safe_attr(commander, 'name', 'Unknown')
+                    prompt_parts.append(f"  Led by {cmd_name}")
 
         # Add terrain
         if sheet.terrain_weather:
             tw = sheet.terrain_weather
-            prompt_parts.append(f"\n**Terrain:** {tw.terrain_type.value}")
-            prompt_parts.append(f"**Defining Feature:** {tw.defining_feature}")
+            prompt_parts.append(f"\n**Terrain:** {enum_value(safe_attr(tw, 'terrain_type', ''))}")
+            prompt_parts.append(f"**Defining Feature:** {safe_attr(tw, 'defining_feature', 'Unspecified')}")
 
         # Add existing timeline
         if sheet.timeline:
             prompt_parts.append("\n**Current Timeline:**")
             for event in sheet.timeline:
-                prompt_parts.append(f"- [{event.timestamp}] {event.event}")
+                evt_ts = safe_attr(event, 'timestamp', '')
+                evt_name = safe_attr(event, 'event', '')
+                prompt_parts.append(f"- [{evt_ts}] {evt_name}")
 
         # Add existing aftermath
         if sheet.aftermath:
