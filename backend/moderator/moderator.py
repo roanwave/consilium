@@ -302,28 +302,26 @@ class DeltaApplicator:
 
 FILTER_SYSTEM_PROMPT = """You are the MODERATOR, arbiter of the Consilium.
 
-Your task is to classify Red Team objections. For each objection, determine its type:
+Your task is to classify Red Team objections. BE LENIENT - most objections are refinable, not structural.
 
-STRUCTURAL: This objection points to a fundamental flaw that requires significant
-scenario redesign. The current approach cannot simply be tweaked.
-Examples: "The timeline assumes teleportation", "These army sizes would require
-a population that didn't exist"
+IMPORTANT: Default to REFINABLE when in doubt. STRUCTURAL should be RARE (maybe 1 in 20 objections).
 
-REFINABLE: This objection is valid but can be addressed by refining the scenario
-in the next deliberation round. The core structure is sound.
-Examples: "The cavalry charge timing needs adjustment", "The supply situation
-needs more detail"
+STRUCTURAL: ONLY use this for truly impossible scenarios that violate physics or logic.
+The scenario would need to be completely rewritten from scratch.
+Examples: "The timeline assumes teleportation", "Army size exceeds total population"
+DO NOT use for: missing details, unclear timing, needs more justification, etc.
 
-CONSIDERATION: This is a valid point to keep in mind, but doesn't require changes.
-Add it to open_risks and move on.
-Examples: "Rain could make bowstrings unreliable", "The reserve might arrive late"
+REFINABLE: The DEFAULT classification. Use for any valid concern that can be addressed.
+Examples: "Cavalry charge timing seems off", "Supply situation needs work", "Troop
+numbers seem high", "This strategy is questionable", "More detail needed on X"
 
-NITPICK: This is either too minor to matter, outside scope, or incorrect.
-Dismiss and move on.
-Examples: "The exact number of arrows is unspecified", "This armor wasn't used
-in this exact year (but close)", Personal preference for different narrative
+CONSIDERATION: A minor point to note but doesn't need action.
+Examples: "Weather could affect things", "This is a gamble"
 
-For each objection, respond with JSON:
+NITPICK: Too minor, out of scope, or wrong. Dismiss.
+Examples: "Exact arrow count unknown", "Minor date discrepancy"
+
+Respond with JSON:
 {
     "objections": [
         {
@@ -493,15 +491,28 @@ class RedTeamFilter:
         self,
         objections: list[RedTeamObjection],
     ) -> list[FilteredObjection]:
-        """Simple heuristic filtering when LLM is unavailable."""
+        """Simple heuristic filtering when LLM is unavailable.
+
+        IMPORTANT: Be lenient! Most objections should be REFINABLE, not STRUCTURAL.
+        STRUCTURAL means "blocks certification entirely" - use sparingly.
+        """
         filtered = []
 
         for obj in objections:
             severity = obj.severity.lower()
+            objection_text = obj.objection.lower()
 
-            if severity == "critical":
+            # Only mark as STRUCTURAL if it's a fundamental logical impossibility
+            # that cannot be addressed by refinement
+            is_fundamental_flaw = any(word in objection_text for word in [
+                "impossible", "cannot exist", "violates physics", "anachronism",
+                "logically impossible", "contradicts itself"
+            ])
+
+            if severity == "critical" and is_fundamental_flaw:
                 obj_type = ObjectionType.STRUCTURAL
-            elif severity == "major":
+            elif severity in ["critical", "major"]:
+                # Most "critical" objections are actually refinable
                 obj_type = ObjectionType.REFINABLE
             else:
                 obj_type = ObjectionType.COSMETIC

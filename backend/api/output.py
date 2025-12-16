@@ -22,10 +22,11 @@ async def get_output(
     """
     session = await store.get(session_id)
 
-    if session.status != SessionStatus.CERTIFIED:
+    # Allow both certified and failed - user should see what was generated
+    if session.status not in [SessionStatus.CERTIFIED, SessionStatus.FAILED]:
         raise HTTPException(
             status_code=400,
-            detail=f"Scenario not certified yet. Status: {session.status.value}",
+            detail=f"Deliberation not complete. Status: {session.status.value}",
         )
 
     if not session.sheet:

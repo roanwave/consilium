@@ -157,11 +157,14 @@ export default function OutputPage() {
                   <CardTitle className="text-war-accent">Constraints</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {sheet?.constraints?.length > 0 ? (
+                  {sheet?.constraints ? (
                     <ul className="list-disc list-inside text-war-muted text-sm space-y-1">
-                      {sheet.constraints.map((c: string, i: number) => (
-                        <li key={i}>{c}</li>
-                      ))}
+                      {Array.isArray(sheet.constraints)
+                        ? sheet.constraints.map((c: string, i: number) => (
+                            <li key={i}>{c}</li>
+                          ))
+                        : <li>{String(sheet.constraints)}</li>
+                      }
                     </ul>
                   ) : (
                     <p className="text-war-muted text-sm italic">No constraints defined</p>
@@ -174,11 +177,14 @@ export default function OutputPage() {
                   <CardTitle className="text-war-accent">Open Risks</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {sheet?.open_risks?.length > 0 ? (
+                  {sheet?.open_risks ? (
                     <ul className="list-disc list-inside text-war-muted text-sm space-y-1">
-                      {sheet.open_risks.map((r: string, i: number) => (
-                        <li key={i}>{r}</li>
-                      ))}
+                      {Array.isArray(sheet.open_risks)
+                        ? sheet.open_risks.map((r: string, i: number) => (
+                            <li key={i}>{r}</li>
+                          ))
+                        : <li>{String(sheet.open_risks)}</li>
+                      }
                     </ul>
                   ) : (
                     <p className="text-war-muted text-sm italic">No open risks identified</p>
@@ -231,13 +237,13 @@ export default function OutputPage() {
                   <Separator />
 
                   {/* Composition */}
-                  {force.composition?.length > 0 && (
+                  {force.composition && Array.isArray(force.composition) && force.composition.length > 0 && (
                     <div>
                       <h4 className="font-semibold text-war-text mb-2">Unit Composition</h4>
                       <div className="space-y-2">
                         {force.composition.map((unit: any, i: number) => (
                           <div key={i} className="text-sm text-war-muted">
-                            <span className="font-medium">{unit.unit_type}</span>: {unit.count?.toLocaleString()} ({unit.quality})
+                            <span className="font-medium">{unit.unit_type || unit.type || 'Unit'}</span>: {unit.count?.toLocaleString() || '?'} ({unit.quality || 'unknown'})
                             {unit.notes && <span className="text-xs"> - {unit.notes}</span>}
                           </div>
                         ))}
@@ -260,13 +266,16 @@ export default function OutputPage() {
                   </div>
 
                   {/* Objectives */}
-                  {force.objectives?.length > 0 && (
+                  {force.objectives && (
                     <div>
                       <h4 className="font-semibold text-war-text mb-2">Objectives</h4>
                       <ul className="list-disc list-inside text-war-muted text-sm space-y-1">
-                        {force.objectives.map((obj: string, i: number) => (
-                          <li key={i}>{obj}</li>
-                        ))}
+                        {Array.isArray(force.objectives)
+                          ? force.objectives.map((obj: string, i: number) => (
+                              <li key={i}>{obj}</li>
+                            ))
+                          : <li>{String(force.objectives)}</li>
+                        }
                       </ul>
                     </div>
                   )}
@@ -289,63 +298,75 @@ export default function OutputPage() {
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[600px] pr-4">
-                {sheet?.timeline?.length > 0 ? (
+                {sheet?.timeline && Array.isArray(sheet.timeline) && sheet.timeline.length > 0 ? (
                   <div className="space-y-4">
                     {sheet.timeline.map((event: any, i: number) => (
                       <div key={i} className="border-l-2 border-war-accent pl-4 py-2">
                         <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline">{event.timestamp}</Badge>
+                          <Badge variant="outline">{event.timestamp || event.time || 'Event'}</Badge>
                         </div>
-                        <p className="text-war-text text-sm">{event.event}</p>
+                        <p className="text-war-text text-sm">{event.event || event.description || String(event)}</p>
                         {event.triggered_by && (
                           <p className="text-war-muted text-xs mt-1">Triggered by: {event.triggered_by}</p>
                         )}
-                        {event.consequences?.length > 0 && (
+                        {event.consequences && (
                           <div className="mt-2">
                             <p className="text-xs text-war-muted">Consequences:</p>
                             <ul className="list-disc list-inside text-xs text-war-muted">
-                              {event.consequences.map((c: string, j: number) => (
-                                <li key={j}>{c}</li>
-                              ))}
+                              {Array.isArray(event.consequences)
+                                ? event.consequences.map((c: string, j: number) => (
+                                    <li key={j}>{c}</li>
+                                  ))
+                                : <li>{String(event.consequences)}</li>
+                              }
                             </ul>
                           </div>
                         )}
                       </div>
                     ))}
                   </div>
+                ) : sheet?.timeline && typeof sheet.timeline === 'string' ? (
+                  <p className="text-war-text whitespace-pre-wrap">{sheet.timeline}</p>
                 ) : (
                   <p className="text-war-muted text-center py-8">No timeline events available</p>
                 )}
 
-                {sheet?.decision_points?.length > 0 && (
+                {sheet?.decision_points && (
                   <>
                     <Separator className="my-6" />
                     <h3 className="text-war-accent font-semibold mb-4">Decision Points</h3>
                     <div className="space-y-4">
-                      {sheet.decision_points.map((dp: any, i: number) => (
-                        <div key={i} className="border-l-2 border-yellow-500 pl-4 py-2">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="secondary">{dp.timestamp}</Badge>
-                            <span className="text-xs text-war-muted">{dp.commander}</span>
-                          </div>
-                          <p className="text-war-text text-sm font-medium">{dp.situation}</p>
-                          {dp.options?.length > 0 && (
-                            <div className="mt-2">
-                              <p className="text-xs text-war-muted">Options:</p>
-                              <ul className="list-disc list-inside text-xs text-war-muted">
-                                {dp.options.map((opt: string, j: number) => (
-                                  <li key={j} className={opt === dp.chosen ? "text-war-accent" : ""}>
-                                    {opt} {opt === dp.chosen && "(chosen)"}
-                                  </li>
-                                ))}
-                              </ul>
+                      {Array.isArray(sheet.decision_points) ? (
+                        sheet.decision_points.map((dp: any, i: number) => (
+                          <div key={i} className="border-l-2 border-yellow-500 pl-4 py-2">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="secondary">{dp.timestamp || dp.time || 'Decision'}</Badge>
+                              <span className="text-xs text-war-muted">{dp.commander}</span>
                             </div>
-                          )}
-                          {dp.rationale && (
-                            <p className="text-xs text-war-muted mt-1">Rationale: {dp.rationale}</p>
-                          )}
-                        </div>
-                      ))}
+                            <p className="text-war-text text-sm font-medium">{dp.situation || dp.description}</p>
+                            {dp.options && (
+                              <div className="mt-2">
+                                <p className="text-xs text-war-muted">Options:</p>
+                                <ul className="list-disc list-inside text-xs text-war-muted">
+                                  {Array.isArray(dp.options)
+                                    ? dp.options.map((opt: string, j: number) => (
+                                        <li key={j} className={opt === dp.chosen ? "text-war-accent" : ""}>
+                                          {opt} {opt === dp.chosen && "(chosen)"}
+                                        </li>
+                                      ))
+                                    : <li>{String(dp.options)}</li>
+                                  }
+                                </ul>
+                              </div>
+                            )}
+                            {dp.rationale && (
+                              <p className="text-xs text-war-muted mt-1">Rationale: {dp.rationale}</p>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-war-text text-sm">{typeof sheet.decision_points === 'object' ? JSON.stringify(sheet.decision_points) : String(sheet.decision_points)}</p>
+                      )}
                     </div>
                   </>
                 )}
@@ -423,13 +444,16 @@ export default function OutputPage() {
                       <p className="text-war-text text-sm">{sheet.casualty_profile.casualty_distribution}</p>
                     </div>
                   )}
-                  {sheet.casualty_profile.notable_deaths?.length > 0 && (
+                  {sheet.casualty_profile.notable_deaths && (
                     <div>
                       <span className="text-war-muted text-sm">Notable Deaths:</span>
                       <ul className="list-disc list-inside text-war-text text-sm">
-                        {sheet.casualty_profile.notable_deaths.map((d: string, i: number) => (
-                          <li key={i}>{d}</li>
-                        ))}
+                        {Array.isArray(sheet.casualty_profile.notable_deaths)
+                          ? sheet.casualty_profile.notable_deaths.map((d: string, i: number) => (
+                              <li key={i}>{d}</li>
+                            ))
+                          : <li>{String(sheet.casualty_profile.notable_deaths)}</li>
+                        }
                       </ul>
                     </div>
                   )}
@@ -450,23 +474,29 @@ export default function OutputPage() {
                       <p className="text-war-text">{sheet.magic.tactical_role}</p>
                     </div>
                   )}
-                  {sheet.magic.constraints?.length > 0 && (
+                  {sheet.magic.constraints && (
                     <div>
                       <span className="text-war-muted text-sm">Constraints:</span>
                       <ul className="list-disc list-inside text-war-text text-sm">
-                        {sheet.magic.constraints.map((c: string, i: number) => (
-                          <li key={i}>{c}</li>
-                        ))}
+                        {Array.isArray(sheet.magic.constraints)
+                          ? sheet.magic.constraints.map((c: string, i: number) => (
+                              <li key={i}>{c}</li>
+                            ))
+                          : <li>{String(sheet.magic.constraints)}</li>
+                        }
                       </ul>
                     </div>
                   )}
-                  {sheet.magic.practitioners?.length > 0 && (
+                  {sheet.magic.practitioners && (
                     <div>
                       <span className="text-war-muted text-sm">Practitioners:</span>
                       <ul className="list-disc list-inside text-war-text text-sm">
-                        {sheet.magic.practitioners.map((p: string, i: number) => (
-                          <li key={i}>{p}</li>
-                        ))}
+                        {Array.isArray(sheet.magic.practitioners)
+                          ? sheet.magic.practitioners.map((p: string, i: number) => (
+                              <li key={i}>{p}</li>
+                            ))
+                          : <li>{String(sheet.magic.practitioners)}</li>
+                        }
                       </ul>
                     </div>
                   )}

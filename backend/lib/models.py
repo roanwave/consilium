@@ -315,7 +315,7 @@ class ScenarioSheet(BaseModel):
     timeline: Union[str, list, dict, Any] = Field(
         default_factory=list, description="Anchor events with timestamps"
     )
-    decision_points: Union[list[dict], list[DecisionPoint]] = Field(
+    decision_points: Union[dict, list, Any] = Field(
         default_factory=list, description="Where commanders choose under uncertainty"
     )
     casualty_profile: Union[dict, CasualtyProfile, None] = Field(
