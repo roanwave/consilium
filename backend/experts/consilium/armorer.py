@@ -82,6 +82,14 @@ You ask a question ONLY if:
 
 If equipment is reasonably inferred from era and force types, no question.
 
+## DELTA OPERATIONS (MUST USE EXACTLY)
+When proposing changes via delta_requests, use ONLY these operation values:
+- "set": Replace the entire field value
+- "append": Add to a list field
+- "modify": Update specific nested properties
+
+DO NOT use "add", "replace", "update", or any other operation names.
+
 ## OUTPUT FORMAT
 
 Respond with a JSON object:

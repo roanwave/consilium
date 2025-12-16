@@ -183,10 +183,12 @@ class Skeptic(RedTeamExpert):
         if sheet.casualty_profile:
             cp = sheet.casualty_profile
             prompt_parts.append("\n## Outcome")
-            if cp.total_casualties:
-                prompt_parts.append(f"- Casualties: {cp.total_casualties:,}")
-            if cp.casualty_distribution:
-                prompt_parts.append(f"- Distribution: {cp.casualty_distribution}")
+            total_casualties = _get_attr(cp, "total_casualties")
+            if total_casualties:
+                prompt_parts.append(f"- Casualties: {total_casualties:,}")
+            casualty_distribution = _get_attr(cp, "casualty_distribution")
+            if casualty_distribution:
+                prompt_parts.append(f"- Distribution: {casualty_distribution}")
 
         # Add aftermath
         if sheet.aftermath:

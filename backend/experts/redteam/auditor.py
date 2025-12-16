@@ -175,10 +175,12 @@ class Auditor(RedTeamExpert):
         if sheet.casualty_profile:
             cp = sheet.casualty_profile
             prompt_parts.append("\n## Casualty Profile (VERIFY MATH)")
-            if cp.total_casualties:
-                prompt_parts.append(f"- Total Casualties: {cp.total_casualties:,}")
-            if cp.casualty_distribution:
-                prompt_parts.append(f"- Distribution: {cp.casualty_distribution}")
+            total_casualties = _get_attr(cp, "total_casualties")
+            if total_casualties:
+                prompt_parts.append(f"- Total Casualties: {total_casualties:,}")
+            casualty_distribution = _get_attr(cp, "casualty_distribution")
+            if casualty_distribution:
+                prompt_parts.append(f"- Distribution: {casualty_distribution}")
 
         # Add decision points
         if sheet.decision_points:

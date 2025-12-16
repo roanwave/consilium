@@ -190,8 +190,9 @@ class Adversary(RedTeamExpert):
         if sheet.casualty_profile:
             cp = sheet.casualty_profile
             prompt_parts.append("\n## Outcome")
-            if cp.casualty_distribution:
-                prompt_parts.append(f"- Distribution: {cp.casualty_distribution}")
+            casualty_distribution = _get_attr(cp, "casualty_distribution")
+            if casualty_distribution:
+                prompt_parts.append(f"- Distribution: {casualty_distribution}")
 
         # Add aftermath (who is portrayed as victor/loser?)
         if sheet.aftermath:
