@@ -8,11 +8,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sse_starlette.sse import EventSourceResponse
 
-from backend.config import get_settings
-from backend.lib.llm import LLMClient, get_llm_client
+from backend.lib.llm import LLMClient
 from backend.lib.models import SessionStatus
 from backend.lib.persistence import SessionStore, get_session_store
-from backend.lib.streaming import format_sse, format_sse_simple
+from backend.lib.streaming import format_sse
 from backend.orchestrator.engine import DeliberationEngine
 
 HEARTBEAT_INTERVAL = 10  # seconds
@@ -53,50 +52,27 @@ async def deliberate(
 
     async def event_generator():
         """Generate SSE events for deliberation with heartbeat keep-alive."""
-        settings = get_settings()
         llm_client = LLMClient()
 
-        # Queue for merging engine events with heartbeats
-        event_queue: asyncio.Queue = asyncio.Queue()
-        deliberation_done = asyncio.Event()
-
-        async def heartbeat_task():
-            """Send periodic heartbeats while deliberation is running."""
-            try:
-                while not deliberation_done.is_set():
-                    await asyncio.sleep(HEARTBEAT_INTERVAL)
-                    if not deliberation_done.is_set():
-                        await event_queue.put(("heartbeat", None))
-            except asyncio.CancelledError:
-                pass
-
-        async def deliberation_task():
-            """Run deliberation and queue events."""
-            try:
-                await llm_client._ensure_clients()
-
-                engine = DeliberationEngine(
-                    session=session,
-                    llm_client=llm_client,
-                )
-
-                session.status = SessionStatus.DELIBERATING
-                await store.save(session)
-
-                async for event in engine.run():
-                    await event_queue.put(("event", event))
-
-                await event_queue.put(("done", None))
-            except Exception as e:
-                await event_queue.put(("error", e))
-            finally:
-                deliberation_done.set()
-
-        # Start both tasks
-        heartbeat = asyncio.create_task(heartbeat_task())
-        deliberation = asyncio.create_task(deliberation_task())
+        # Heartbeat SSE format - must include event_type in data for frontend
+        def make_heartbeat() -> str:
+            return f"event: heartbeat\ndata: {json.dumps({'event_type': 'heartbeat', 'message': 'Processing...'})}\n\n"
 
         try:
+            await llm_client._ensure_clients()
+
+            engine = DeliberationEngine(
+                session=session,
+                llm_client=llm_client,
+            )
+
+            session.status = SessionStatus.DELIBERATING
+            await store.save(session)
+
+            # Create async iterator from engine
+            engine_iter = engine.run().__aiter__()
+            last_event_time = asyncio.get_event_loop().time()
+
             while True:
                 # Check for client disconnect
                 if await request.is_disconnected():
@@ -104,20 +80,13 @@ async def deliberate(
                     break
 
                 try:
-                    msg_type, payload = await asyncio.wait_for(
-                        event_queue.get(),
-                        timeout=HEARTBEAT_INTERVAL + 5
+                    # Wait for next event with timeout for heartbeat
+                    event = await asyncio.wait_for(
+                        engine_iter.__anext__(),
+                        timeout=HEARTBEAT_INTERVAL
                     )
-                except asyncio.TimeoutError:
-                    # Safety timeout - send heartbeat
-                    yield format_sse_simple("heartbeat", {"message": "Processing..."})
-                    continue
+                    last_event_time = asyncio.get_event_loop().time()
 
-                if msg_type == "heartbeat":
-                    yield format_sse_simple("heartbeat", {"message": "Processing..."})
-
-                elif msg_type == "event":
-                    event = payload
                     # Skip events before reconnection point
                     if event.sequence < start_sequence:
                         continue
@@ -133,25 +102,26 @@ async def deliberate(
                     ]:
                         await store.save(session)
 
-                elif msg_type == "error":
-                    logger.exception(f"Deliberation error for session {session_id}")
-                    yield format_sse_simple(
-                        "error",
-                        {"error": str(payload), "type": type(payload).__name__}
-                    )
+                except asyncio.TimeoutError:
+                    # No event in HEARTBEAT_INTERVAL seconds - send heartbeat
+                    logger.debug(f"Sending heartbeat for session {session_id}")
+                    yield make_heartbeat()
+
+                except StopAsyncIteration:
+                    # Engine finished
+                    logger.info(f"Deliberation complete for session {session_id}")
                     break
 
-                elif msg_type == "done":
-                    break
+        except Exception as e:
+            logger.exception(f"Deliberation error for session {session_id}")
+            error_data = json.dumps({
+                "event_type": "error",
+                "error": str(e),
+                "type": type(e).__name__
+            })
+            yield f"event: error\ndata: {error_data}\n\n"
 
         finally:
-            # Cleanup
-            deliberation_done.set()
-            heartbeat.cancel()
-            try:
-                await heartbeat
-            except asyncio.CancelledError:
-                pass
             await llm_client.close()
 
     return EventSourceResponse(event_generator())
