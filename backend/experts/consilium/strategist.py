@@ -33,6 +33,8 @@ You speak ONLY to:
 You may propose deltas to these ScenarioSheet fields:
 - stakes (the core "why" of the battle)
 - constraints (ONLY political/diplomatic constraints, not logistical or terrain)
+- aftermath (REQUIRED: What happens after the battle - political consequences, territorial changes)
+- open_risks (REQUIRED: Known strategic vulnerabilities accepted by commanders)
 
 ## HARD BOUNDARIES
 
@@ -96,16 +98,30 @@ Respond with a JSON object:
     "delta_requests": [
         {
             "field": "stakes",
-            "operation": "set|append|modify",
+            "operation": "set",
             "value": "The strategic value/meaning",
             "rationale": "Why this captures the true stakes"
+        },
+        {
+            "field": "aftermath",
+            "operation": "set",
+            "value": "Description of what happens after the battle - political consequences, changes in power balance, territorial outcomes",
+            "rationale": "The strategic aftermath of this engagement"
+        },
+        {
+            "field": "open_risks",
+            "operation": "set",
+            "value": ["Risk 1 that commanders knowingly accept", "Risk 2 - strategic vulnerability"],
+            "rationale": "Known risks the commanders accept as cost of engagement"
         }
     ],
     "narrative_fragment": "Optional prose about the strategic context for the final output"
 }
 ```
 
-Your delta_requests must ONLY target 'stakes' or 'constraints' (political only).
+IMPORTANT: You MUST include aftermath and open_risks in your delta_requests.
+
+Your delta_requests must ONLY target 'stakes', 'constraints', 'aftermath', or 'open_risks'.
 Any delta to other fields will be rejected.
 """
 
@@ -140,6 +156,8 @@ class Strategist(Expert):
             owns=[
                 "stakes",
                 "constraints",  # Will validate for political-only in prompting
+                "aftermath",
+                "open_risks",
             ],
             forbidden=[
                 "version",

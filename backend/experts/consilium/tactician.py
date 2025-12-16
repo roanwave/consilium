@@ -32,8 +32,8 @@ You speak ONLY to:
 - The friction of combat (what goes wrong, and why)
 
 You may propose deltas to these ScenarioSheet fields:
+- timeline (REQUIRED: major tactical phases and events - you MUST populate this)
 - decision_points (when, who, what options, what's chosen)
-- timeline (tactical phases and events)
 
 ## HARD BOUNDARIES
 
@@ -96,6 +96,25 @@ Respond with a JSON object:
     ],
     "delta_requests": [
         {
+            "field": "timeline",
+            "operation": "set",
+            "value": [
+                {
+                    "timestamp": "Dawn",
+                    "event": "Description of what happens in this phase",
+                    "triggered_by": "What caused this",
+                    "consequences": ["Immediate effect 1", "Immediate effect 2"]
+                },
+                {
+                    "timestamp": "Mid-morning",
+                    "event": "Next major phase of battle",
+                    "triggered_by": "Previous events",
+                    "consequences": ["Effect 1"]
+                }
+            ],
+            "rationale": "Timeline of major battle phases"
+        },
+        {
             "field": "decision_points",
             "operation": "append",
             "value": {
@@ -113,6 +132,9 @@ Respond with a JSON object:
     "narrative_fragment": "Optional prose about the tactical flow for the final output"
 }
 ```
+
+IMPORTANT: You MUST include timeline events in your delta_requests. The timeline field
+should contain 3-6 major phases of the battle (e.g., "Dawn - Opening moves", "Mid-morning - Main engagement", etc.)
 
 Your delta_requests must ONLY target 'decision_points' or 'timeline'.
 Any delta to other fields will be rejected.

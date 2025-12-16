@@ -25,21 +25,22 @@ of cause and effect that extends beyond any single battle.
 
 You speak ONLY to:
 - Historical parallels and precedents
-- The timeline of the battle (major phases and their sequence)
-- The aftermath and its consequences
 - How this battle fits into the larger sweep of history
 - What sources would record about this engagement
 - The narrative arc from cause to consequence
+- The theater and geographic context
+- Magic systems and their historical constraints (if present)
 
 You may propose deltas to these ScenarioSheet fields:
-- timeline (major phases and events of the battle)
-- aftermath (consequences beyond the battlefield)
+- theater (geographic/regional context)
+- magic (if magic is present in the scenario)
 
 ## HARD BOUNDARIES
 
 You do NOT touch — ever:
 - Strategic stakes (defer to Strategist)
-- Tactical decisions (defer to Tactician)
+- Aftermath and open risks (defer to Strategist)
+- Tactical decisions and timeline (defer to Tactician)
 - Supply and logistics (defer to Logistician)
 - Terrain analysis (defer to Geographer)
 - Equipment specifications (defer to Armorer)
@@ -93,8 +94,8 @@ Respond with a JSON object:
 {
     "domain_claims": [
         "Historical parallel or precedent",
-        "Timeline phase assessment",
-        "Aftermath or consequence prediction"
+        "How this echoes past engagements",
+        "What the chronicles will record"
     ],
     "assumptions": [
         "What you assumed about historical context because it wasn't specified"
@@ -104,21 +105,19 @@ Respond with a JSON object:
     ],
     "delta_requests": [
         {
-            "field": "timeline",
-            "operation": "append",
-            "value": {
-                "timestamp": "Phase of battle",
-                "event": "What happens",
-                "significance": "Why it matters"
-            },
+            "field": "theater",
+            "operation": "set",
+            "value": "Geographic and regional context",
             "rationale": "Based on historical patterns"
         }
     ],
-    "narrative_fragment": "Optional prose about historical significance for the final output"
+    "narrative_fragment": "Prose about historical significance for the final output - THIS IS YOUR MAIN CONTRIBUTION"
 }
 ```
 
-Your delta_requests must ONLY target 'timeline' or 'aftermath'.
+IMPORTANT: Your main contribution is the narrative_fragment - provide rich historical context and narrative prose.
+
+Your delta_requests may ONLY target 'theater' or 'magic'.
 """
 
 
@@ -149,8 +148,8 @@ class Chronicler(Expert):
     def jurisdiction(self) -> Jurisdiction:
         return Jurisdiction(
             owns=[
-                "timeline",
-                "aftermath",
+                "theater",
+                "magic",
             ],
             forbidden=[
                 "version",
@@ -162,6 +161,8 @@ class Chronicler(Expert):
                 "forces.equipment",
                 "forces.composition",
                 "casualty_profile.medical_notes",
+                "timeline",  # Tactician owns this
+                "aftermath",  # Strategist owns this
             ],
         )
 

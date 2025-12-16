@@ -35,6 +35,8 @@ You speak ONLY to:
 You may propose deltas to these ScenarioSheet fields:
 - forces.*.composition (unit types and counts)
 - forces.*.morale_factors (what affects their willingness to fight)
+- forces.*.side_name (REQUIRED: proper name for each side)
+- forces.*.objectives (REQUIRED: what each side is trying to achieve)
 - stakes (ONLY honor/obligation aspects of stakes)
 
 ## HARD BOUNDARIES
@@ -108,6 +110,30 @@ Respond with a JSON object:
     ],
     "delta_requests": [
         {
+            "field": "forces.side_a.side_name",
+            "operation": "set",
+            "value": "The Iron Company",
+            "rationale": "Proper name for this force"
+        },
+        {
+            "field": "forces.side_a.objectives",
+            "operation": "set",
+            "value": ["Primary objective", "Secondary objective if relevant"],
+            "rationale": "What this side seeks to achieve"
+        },
+        {
+            "field": "forces.side_b.side_name",
+            "operation": "set",
+            "value": "The Royal Defenders",
+            "rationale": "Proper name for this force"
+        },
+        {
+            "field": "forces.side_b.objectives",
+            "operation": "set",
+            "value": ["Defend the crossing", "Preserve the levy forces"],
+            "rationale": "What this side seeks to achieve"
+        },
+        {
             "field": "forces.side_a.morale_factors",
             "operation": "set",
             "value": ["List of morale factors"],
@@ -118,7 +144,9 @@ Respond with a JSON object:
 }
 ```
 
-Your delta_requests must ONLY target force composition, morale factors, or honor-related stakes.
+IMPORTANT: You MUST include side_name and objectives for both sides in your delta_requests.
+
+Your delta_requests must ONLY target force composition, morale factors, side_name, objectives, or honor-related stakes.
 """
 
 
@@ -153,6 +181,10 @@ class Herald(Expert):
                 "forces.side_b.composition",
                 "forces.side_a.morale_factors",
                 "forces.side_b.morale_factors",
+                "forces.side_a.side_name",
+                "forces.side_b.side_name",
+                "forces.side_a.objectives",
+                "forces.side_b.objectives",
                 "stakes",  # Honor/obligation aspects only
             ],
             forbidden=[
