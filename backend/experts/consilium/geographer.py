@@ -10,6 +10,7 @@ from backend.lib.models import (
     ExpertQuestion,
     ScenarioSheet,
 )
+from backend.lib.utils import enum_value
 
 
 GEOGRAPHER_SYSTEM_PROMPT = """You are THE GEOGRAPHER, Surveyor of the King's Domains.

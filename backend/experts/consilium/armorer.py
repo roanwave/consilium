@@ -10,6 +10,7 @@ from backend.lib.models import (
     ExpertQuestion,
     ScenarioSheet,
 )
+from backend.lib.utils import enum_value
 
 
 ARMORER_SYSTEM_PROMPT = """You are THE ARMORER, Master of the King's Forges.

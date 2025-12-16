@@ -8,6 +8,14 @@ Phase 2 implementation.
 from typing import Any
 
 from backend.lib.models import DeltaOperation, DeltaRequest, ScenarioSheet
+from backend.lib.utils import enum_value
+
+
+def _normalize_operation(op: DeltaOperation | str) -> str:
+    """Normalize operation to lowercase string for comparison."""
+    if hasattr(op, "value"):
+        return op.value.lower()
+    return str(op).lower()
 
 
 def apply_delta(
@@ -38,8 +46,9 @@ def apply_delta(
                 return False, f"Cannot navigate to {delta.field}"
 
         final_field = field_path[-1]
+        op = _normalize_operation(delta.operation)
 
-        if delta.operation == DeltaOperation.SET:
+        if op == "set":
             if hasattr(target, final_field):
                 setattr(target, final_field, delta.value)
             elif isinstance(target, dict):
@@ -47,14 +56,14 @@ def apply_delta(
             else:
                 return False, f"Cannot set {delta.field}"
 
-        elif delta.operation == DeltaOperation.APPEND:
+        elif op == "append":
             current = getattr(target, final_field, None) or target.get(final_field)
             if isinstance(current, list):
                 current.append(delta.value)
             else:
                 return False, f"Cannot append to non-list field {delta.field}"
 
-        elif delta.operation == DeltaOperation.MODIFY:
+        elif op == "modify":
             # Modify requires value to be a dict with partial updates
             current = getattr(target, final_field, None) or target.get(final_field)
             if isinstance(current, dict) and isinstance(delta.value, dict):
@@ -84,7 +93,7 @@ def apply_all_deltas(
         success, message = apply_delta(sheet, delta)
         results.append({
             "field": delta.field,
-            "operation": delta.operation.value,
+            "operation": enum_value(delta.operation),
             "success": success,
             "message": message,
             "rationale": delta.rationale,

@@ -10,6 +10,7 @@ from backend.lib.models import (
     ExpertQuestion,
     ScenarioSheet,
 )
+from backend.lib.utils import enum_value
 
 
 CHRONICLER_SYSTEM_PROMPT = """You are THE CHRONICLER, Keeper of the Kingdom's Histories.

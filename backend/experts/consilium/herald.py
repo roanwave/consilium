@@ -10,6 +10,7 @@ from backend.lib.models import (
     ExpertQuestion,
     ScenarioSheet,
 )
+from backend.lib.utils import enum_value
 
 
 HERALD_SYSTEM_PROMPT = """You are THE HERALD, Master of Arms and Honor.

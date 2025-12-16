@@ -9,6 +9,7 @@ from backend.lib.models import (
     ExpertContribution,
     ScenarioSheet,
 )
+from backend.lib.utils import enum_value
 
 
 def _get_attr(obj: Any, attr: str, default: Any = None) -> Any:
@@ -126,7 +127,7 @@ class Adversary(RedTeamExpert):
         """Build the user prompt for enemy perspective review."""
         prompt_parts = [
             "# Scenario for Enemy Perspective Review\n",
-            f"**Era:** {sheet.era.value if sheet.era else 'Unspecified'}",
+            f"**Era:** {enum_value(sheet.era, 'Unspecified')}",
             f"**Theater:** {sheet.theater or 'Unspecified'}",
             f"**Stakes:** {sheet.stakes or 'Unspecified'}",
         ]
@@ -158,7 +159,7 @@ class Adversary(RedTeamExpert):
         # Add terrain (what both sides could see)
         if sheet.terrain_weather:
             tw = sheet.terrain_weather
-            prompt_parts.append(f"\n## Battlefield: {tw.terrain_type.value}")
+            prompt_parts.append(f"\n## Battlefield: {enum_value(tw.terrain_type)}")
             prompt_parts.append(f"- Defining Feature: {tw.defining_feature}")
             prompt_parts.append(f"- Visibility: {tw.visibility}")
 

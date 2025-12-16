@@ -9,6 +9,7 @@ from backend.lib.models import (
     ExpertContribution,
     ScenarioSheet,
 )
+from backend.lib.utils import enum_value
 
 
 def _get_attr(obj: Any, attr: str, default: Any = None) -> Any:
@@ -129,7 +130,7 @@ class Dramatist(RedTeamExpert):
         """Build the user prompt for narrative review."""
         prompt_parts = [
             "# Scenario for Narrative Review\n",
-            f"**Era:** {sheet.era.value if sheet.era else 'Unspecified'}",
+            f"**Era:** {enum_value(sheet.era, 'Unspecified')}",
             f"**Theater:** {sheet.theater or 'Unspecified'}",
         ]
 
@@ -163,9 +164,9 @@ class Dramatist(RedTeamExpert):
         if sheet.terrain_weather:
             tw = sheet.terrain_weather
             prompt_parts.append("\n## THE SETTING")
-            prompt_parts.append(f"- Terrain: {tw.terrain_type.value}")
+            prompt_parts.append(f"- Terrain: {enum_value(tw.terrain_type)}")
             prompt_parts.append(f"- Defining Feature: {tw.defining_feature}")
-            prompt_parts.append(f"- Weather: {tw.weather.value}")
+            prompt_parts.append(f"- Weather: {enum_value(tw.weather)}")
             prompt_parts.append(f"- Time: {tw.time_of_day}")
 
         # The plot (decision points)

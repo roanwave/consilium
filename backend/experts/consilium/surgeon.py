@@ -10,6 +10,7 @@ from backend.lib.models import (
     ExpertQuestion,
     ScenarioSheet,
 )
+from backend.lib.utils import enum_value
 
 
 SURGEON_SYSTEM_PROMPT = """You are THE SURGEON, Chief Physician to the Royal Army.

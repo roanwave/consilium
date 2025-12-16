@@ -11,6 +11,7 @@ from backend.lib.models import (
     RedTeamObjection,
     ScenarioSheet,
 )
+from backend.lib.utils import enum_value
 
 
 async def filter_objections(
@@ -56,7 +57,9 @@ def get_objection_breakdown(
     """Get count of objections by type."""
     breakdown = {t.value: 0 for t in ObjectionType}
     for obj in filtered:
-        breakdown[obj.objection_type.value] += 1
+        key = enum_value(obj.objection_type)
+        if key in breakdown:
+            breakdown[key] += 1
     return breakdown
 
 

@@ -20,6 +20,7 @@ from backend.lib.models import (
     ScenarioSheet,
     TokenUsage,
 )
+from backend.lib.utils import enum_value
 
 logger = logging.getLogger(__name__)
 
@@ -257,7 +258,7 @@ class Expert(ABC):
             description=self.config.description,
             jurisdiction_owns=", ".join(self.jurisdiction.owns) or "none",
             jurisdiction_forbidden=", ".join(self.jurisdiction.forbidden) or "none",
-            era=sheet.era.value if sheet.era else "unspecified",
+            era=enum_value(sheet.era, "unspecified"),
             theater=sheet.theater or "unspecified",
             stakes=sheet.stakes or "unspecified",
         )

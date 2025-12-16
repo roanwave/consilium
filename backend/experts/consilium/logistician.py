@@ -10,6 +10,7 @@ from backend.lib.models import (
     ExpertQuestion,
     ScenarioSheet,
 )
+from backend.lib.utils import enum_value
 
 
 LOGISTICIAN_SYSTEM_PROMPT = """You are THE LOGISTICIAN, Quartermaster General.

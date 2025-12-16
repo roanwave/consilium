@@ -45,6 +45,35 @@ def format_number(value: Any, default: str = "0") -> str:
         return str(value) if value else default
 
 
+def enum_value(obj: Any, default: str = "") -> str:
+    """
+    Safely get the value from an Enum or return the string directly.
+
+    LLMs sometimes return strings instead of Enum values. This function
+    handles both cases gracefully.
+
+    Args:
+        obj: An Enum instance or string
+        default: Default value if obj is None
+
+    Returns:
+        The enum's .value if it's an Enum, otherwise str(obj)
+
+    Examples:
+        >>> enum_value(TerrainType.PLAINS)
+        'plains'
+        >>> enum_value("plains")
+        'plains'
+        >>> enum_value(None, "unknown")
+        'unknown'
+    """
+    if obj is None:
+        return default
+    if hasattr(obj, "value"):
+        return str(obj.value)
+    return str(obj)
+
+
 def safe_get(obj: Any, *keys: str, default: Any = None) -> Any:
     """
     Safely get nested attributes from dict or object.

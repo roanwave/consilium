@@ -26,6 +26,7 @@ from backend.lib.models import (
     TokenUsage,
 )
 from backend.lib.streaming import EventBuilder, EventType
+from backend.lib.utils import enum_value
 from backend.moderator.consistency import (
     is_certified_ready,
     resolve_contradictions,
@@ -177,11 +178,12 @@ class DeltaApplicator:
         sheet = sheet.model_copy(deep=True)
 
         try:
-            if delta.operation == DeltaOperation.SET:
+            op = enum_value(delta.operation).lower()
+            if op == "set":
                 self._apply_set(sheet, delta.field, delta.value)
-            elif delta.operation == DeltaOperation.APPEND:
+            elif op == "append":
                 self._apply_append(sheet, delta.field, delta.value)
-            elif delta.operation == DeltaOperation.MODIFY:
+            elif op == "modify":
                 self._apply_modify(sheet, delta.field, delta.value)
 
             return sheet, True, "applied"
@@ -283,7 +285,7 @@ class DeltaApplicator:
                 entry = {
                     "expert": expert,
                     "field": delta.field,
-                    "operation": delta.operation.value,
+                    "operation": enum_value(delta.operation),
                     "success": success,
                     "message": message,
                 }
@@ -397,7 +399,7 @@ class RedTeamFilter:
         """Build the prompt for objection filtering."""
         parts = [
             "# Scenario Context",
-            f"Era: {sheet.era.value}",
+            f"Era: {enum_value(sheet.era, 'unspecified')}",
             f"Stakes: {sheet.stakes}",
             "",
             "# Red Team Objections to Classify",
@@ -711,7 +713,7 @@ class Moderator:
             sheet, success, message = self.delta_applicator.apply_delta(sheet, delta, expert)
             log.append({
                 "field": delta.field,
-                "operation": delta.operation.value,
+                "operation": enum_value(delta.operation),
                 "success": success,
                 "message": message,
             })
@@ -741,7 +743,7 @@ class Moderator:
         """Count filtered objections by type."""
         counts: dict[str, int] = {}
         for f in filtered:
-            key = f.objection_type.value
+            key = enum_value(f.objection_type)
             counts[key] = counts.get(key, 0) + 1
         return counts
 

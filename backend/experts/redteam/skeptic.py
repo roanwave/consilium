@@ -9,7 +9,7 @@ from backend.lib.models import (
     ExpertContribution,
     ScenarioSheet,
 )
-from backend.lib.utils import format_number
+from backend.lib.utils import enum_value, format_number
 
 
 def _get_attr(obj: Any, attr: str, default: Any = None) -> Any:
@@ -128,7 +128,7 @@ class Skeptic(RedTeamExpert):
         """Build the user prompt for plausibility checking."""
         prompt_parts = [
             "# Scenario for Plausibility Review\n",
-            f"**Era:** {sheet.era.value if sheet.era else 'Unspecified'}",
+            f"**Era:** {enum_value(sheet.era, 'Unspecified')}",
             f"**Theater:** {sheet.theater or 'Unspecified'}",
             f"**Stakes:** {sheet.stakes or 'Unspecified'}",
         ]
@@ -153,7 +153,7 @@ class Skeptic(RedTeamExpert):
         # Add terrain
         if sheet.terrain_weather:
             tw = sheet.terrain_weather
-            prompt_parts.append(f"\n## Terrain: {tw.terrain_type.value}")
+            prompt_parts.append(f"\n## Terrain: {enum_value(tw.terrain_type)}")
             prompt_parts.append(f"- Defining Feature: {tw.defining_feature}")
 
         # Add decision points (check for implausible decisions)
