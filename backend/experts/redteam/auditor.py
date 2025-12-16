@@ -9,6 +9,7 @@ from backend.lib.models import (
     ExpertContribution,
     ScenarioSheet,
 )
+from backend.lib.utils import format_number
 
 
 def _get_attr(obj: Any, attr: str, default: Any = None) -> Any:
@@ -177,7 +178,7 @@ class Auditor(RedTeamExpert):
             prompt_parts.append("\n## Casualty Profile (VERIFY MATH)")
             total_casualties = _get_attr(cp, "total_casualties")
             if total_casualties:
-                prompt_parts.append(f"- Total Casualties: {total_casualties:,}")
+                prompt_parts.append(f"- Total Casualties: {format_number(total_casualties)}")
             casualty_distribution = _get_attr(cp, "casualty_distribution")
             if casualty_distribution:
                 prompt_parts.append(f"- Distribution: {casualty_distribution}")
