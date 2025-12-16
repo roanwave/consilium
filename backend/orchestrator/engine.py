@@ -315,16 +315,10 @@ class DeliberationEngine:
                 for event in self._yield_round_events(round_result):
                     yield event
 
-                # Check certification
+                # Check certification - the ONLY valid early exit
                 if certified:
                     logger.info(f"Round {round_num} certified, stopping deliberation")
                     final_reason = reason
-                    break
-
-                # Check if we should continue
-                if self._should_stop_early(round_result):
-                    logger.info(f"Round {round_num} has >= 3 structural objections, stopping")
-                    final_reason = "structural issues require redesign"
                     break
 
                 # Continue to next round
@@ -383,19 +377,6 @@ class DeliberationEngine:
         self.session.total_token_usage.output_tokens += usage.output_tokens
         self.session.total_token_usage.cache_read_tokens += usage.cache_read_tokens
         self.session.total_token_usage.cache_creation_tokens += usage.cache_creation_tokens
-
-    def _should_stop_early(self, round_result: DeliberationRound) -> bool:
-        """Check if we should stop deliberation early due to structural issues."""
-        structural_count = 0
-        for f in round_result.filtered_objections:
-            obj_type = f.objection_type
-            # Handle both enum and string values
-            if obj_type == ObjectionType.STRUCTURAL or obj_type == "structural":
-                structural_count += 1
-
-        logger.debug(f"Structural objection count: {structural_count}")
-        # Stop if too many structural issues
-        return structural_count >= 3
 
     def _get_blocking_issues(
         self,
