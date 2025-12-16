@@ -684,7 +684,7 @@ class Moderator:
             breakdown = self._count_by_type(filtered)
             event = event_builder.moderator_filter(
                 len(objections),
-                len([f for f in filtered if f.objection_type != ObjectionType.DISMISSED]),
+                len([f for f in filtered if enum_value(f.objection_type) != "dismissed"]),
                 breakdown,
             )
             await emit_callback(event)

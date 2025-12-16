@@ -10,6 +10,8 @@ from datetime import datetime
 from typing import Any, AsyncIterator, Callable
 from uuid import uuid4
 
+from sse_starlette.sse import ServerSentEvent
+
 from backend.lib.models import ScenarioSheet, SessionState, SSEEvent, TokenUsage
 
 logger = logging.getLogger(__name__)
@@ -261,36 +263,28 @@ class EventBuilder:
 # =============================================================================
 
 
-def format_sse(event: SSEEvent) -> str:
-    """Format an SSEEvent for transmission."""
-    lines = []
+def format_sse(event: SSEEvent) -> ServerSentEvent:
+    """Format an SSEEvent for transmission via sse-starlette.
 
-    # Event ID for reconnection
-    lines.append(f"id: {event.event_id}")
-
-    # Event type
-    lines.append(f"event: {event.event_type}")
-
-    # Data as JSON
+    Returns a ServerSentEvent object that sse-starlette will format correctly.
+    We do NOT set the 'event' field because EventSource.onmessage only receives
+    events WITHOUT a custom event type. The event_type is in the JSON data.
+    """
     data = event.model_dump(mode="json")
-    lines.append(f"data: {json.dumps(data)}")
-
-    # Empty line to end event
-    lines.append("")
-    lines.append("")
-
-    return "\n".join(lines)
+    return ServerSentEvent(
+        data=json.dumps(data),
+        id=event.event_id,
+    )
 
 
-def format_sse_simple(event_type: str, data: Any) -> str:
-    """Format a simple SSE event."""
-    lines = [
-        f"event: {event_type}",
-        f"data: {json.dumps(data)}",
-        "",
-        "",
-    ]
-    return "\n".join(lines)
+def format_sse_simple(event_type: str, data: Any) -> ServerSentEvent:
+    """Format a simple SSE event via sse-starlette.
+
+    Returns a ServerSentEvent object. We do NOT set the 'event' field because
+    EventSource.onmessage only receives events WITHOUT a custom event type.
+    """
+    payload = {"event_type": event_type, "data": data}
+    return ServerSentEvent(data=json.dumps(payload))
 
 
 # =============================================================================
@@ -360,8 +354,8 @@ class SSEStream:
         except asyncio.CancelledError:
             pass
 
-    async def __aiter__(self) -> AsyncIterator[str]:
-        """Iterate over formatted SSE strings."""
+    async def __aiter__(self) -> AsyncIterator[ServerSentEvent]:
+        """Iterate over ServerSentEvent objects."""
         await self.start()
         try:
             while True:
@@ -382,7 +376,7 @@ async def replay_events_from_sequence(
     session: SessionState,
     from_sequence: int,
     event_history: list[SSEEvent],
-) -> AsyncIterator[str]:
+) -> AsyncIterator[ServerSentEvent]:
     """
     Replay events from a given sequence number for SSE reconnection.
 
@@ -392,7 +386,7 @@ async def replay_events_from_sequence(
         event_history: List of past events
 
     Yields:
-        Formatted SSE strings for missed events
+        ServerSentEvent objects for missed events
     """
     for event in event_history:
         if event.sequence > from_sequence:

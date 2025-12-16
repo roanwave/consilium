@@ -6,7 +6,7 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sse_starlette.sse import EventSourceResponse
+from sse_starlette.sse import EventSourceResponse, ServerSentEvent
 
 from backend.lib.llm import LLMClient
 from backend.lib.models import SessionStatus
@@ -56,9 +56,11 @@ async def deliberate(
         event_queue: asyncio.Queue = asyncio.Queue()
         engine_task = None
 
-        # Heartbeat SSE format - must include event_type in data for frontend
-        def make_heartbeat() -> str:
-            return f"event: heartbeat\ndata: {json.dumps({'event_type': 'heartbeat', 'message': 'Processing...'})}\n\n"
+        # Heartbeat as ServerSentEvent - NO event field so onmessage receives it
+        def make_heartbeat() -> ServerSentEvent:
+            return ServerSentEvent(
+                data=json.dumps({'event_type': 'heartbeat', 'message': 'Processing...'})
+            )
 
         async def run_engine():
             """Run the engine and put events on the queue."""
@@ -100,7 +102,7 @@ async def deliberate(
                     )
                 except asyncio.TimeoutError:
                     # Queue.get() timed out - send heartbeat and keep waiting
-                    logger.debug(f"Sending heartbeat for session {session_id}")
+                    logger.info(f"Sending heartbeat for session {session_id}")
                     yield make_heartbeat()
                     continue
 
@@ -131,7 +133,7 @@ async def deliberate(
                         "error": str(payload),
                         "type": type(payload).__name__
                     })
-                    yield f"event: error\ndata: {error_data}\n\n"
+                    yield ServerSentEvent(data=error_data)
                     break
 
         except Exception as e:
@@ -141,7 +143,7 @@ async def deliberate(
                 "error": str(e),
                 "type": type(e).__name__
             })
-            yield f"event: error\ndata: {error_data}\n\n"
+            yield ServerSentEvent(data=error_data)
 
         finally:
             if engine_task and not engine_task.done():
